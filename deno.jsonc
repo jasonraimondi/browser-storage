@@ -1,0 +1,9 @@
+{
+  "fmt": {
+    "exclude": ["npm/", "README.md"],
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "singleQuote": false,
+    "proseWrap": "preserve"
+  }
+}
