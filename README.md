@@ -1,4 +1,4 @@
-# DateDuration
+# @jmondi/browser-storage
 
 An abstracted storage library for **browser** applications that interfaces with localStorage, sessionStorage, in-memory storage, or any custom serializer. It provides serialization capabilities with optional key prefixing for better storage management.
 
