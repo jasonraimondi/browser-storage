@@ -17,7 +17,11 @@ pnpm add @jmondi/browser-storage
 ### Deno
 
 ```ts
-import { DateDuration } from "https://deno.land/x/browser_storage";
+import { 
+  LocaleStorage, 
+  SessionStorage, 
+  AbstractStorage 
+} from "@jmondi/browser-storage"
 ```
 
 ## Usage
