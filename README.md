@@ -20,8 +20,8 @@ pnpm add @jmondi/browser-storage
 import { 
   LocaleStorage, 
   SessionStorage, 
-  AbstractStorage 
-} from "@jmondi/browser-storage"
+  BrowserStorage 
+} from "https://deno.land/x/browser_storage"
 ```
 
 ## Usage
@@ -73,44 +73,51 @@ You can optionally provide a configuration object.
 - `serializer`: This optional value can be any object that implements the `StorageSerializer` interface. By default, this is `JSON`.
 
 ```ts
-const storage = new LocalStorage({
+import { BrowserStorage } from "./index.ts";
+
+const localStorage = new LocalStorage({
   prefix: 'app_', // Optional. Defaults to "".
-  serializer: JSON // Optional. Defaults to JSON.
+  serializer: JSON, // Optional. Defaults to JSON.
+});
+const sessionStorage = new SessionStorage({
+  prefix: 'app_', // Optional. Defaults to "".
+  serializer: JSON, // Optional. Defaults to JSON.
+});
+const browserStorage = new BrowserStorage({
+  prefix: 'app_', // Optional. Defaults to "".
+  serializer: JSON, // Optional. Defaults to JSON.
+  adapter: Adapter, // Optional. Defaults to an InMemoryStorageProvider.
 });
 ```
 
 ## Custom Storage Adapter
 
-Underneath, both `LocalStorage` and `SessionStorage` extend the `AbstractStorage` class, which operates over an arbitrary storage adapter. This design enables you to extend `AbstractStorage` to interface with any custom storage provider of your choice.
+The BrowserStorage class gives you the option to use a custom storage adapter.
+
+Underneath, both `LocalStorage` and `SessionStorage` extend the `BrowserStorage` class, which operates over an arbitrary storage adapter. This design enables you to extend `BrowserStorage` to interface with any custom storage provider of your choice.
 
 For a custom storage provider to work correctly, it needs to adhere to the browser's [Storage interface](https://developer.mozilla.org/en-US/docs/Web/API/Storage) – that is, it must implement methods such as `getItem`, `setItem`, `removeItem`, and `clear`, along with the `length` property. As an example, the provided `MemoryStorageProvider` class is a valid storage provider that stores data in an in-memory JavaScript map.
 
 ```ts
-export class MemoryStorageProvider implements Storage {
-  private storage = new Map<string, string | null>();
+import { type Adapter } from "@jmondi/browser-storage";
+import Cookies from "js-cookie";
+
+export class CookieStorage implements Adapter {
 
   clear(): void {
-    this.storage.clear();
+    Cookies.clear();
   }
 
   getItem(key: string): string | null {
-    return this.storage.get(key) ?? null;
-  }
-
-  key(_: number): string | null {
-    return null;
+    return Cookies.get(key) ?? null;
   }
 
   removeItem(key: string): void {
-    this.storage.delete(key);
+    Cookies.remove(key);
   }
 
   setItem(key: string, value: string): void {
-    this.storage.set(key, value);
-  }
-
-  get length() {
-    return this.storage.size;
+    Cookies.set(key, value);
   }
 }
 ```

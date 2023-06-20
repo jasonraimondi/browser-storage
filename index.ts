@@ -1,50 +1,25 @@
-export interface StorageSerializer {
+export type StorageSerializer = {
   parse<T = unknown>(value: string): T;
   stringify<T = unknown>(value: T): string;
-}
+};
+
+export type Adapter = Pick<Storage, "clear" | "getItem" | "removeItem" | "setItem">;
 
 export type StorageConfig = {
   prefix?: string;
   serializer?: StorageSerializer;
+  adapter?: Adapter;
 };
 
-export class MemoryStorageProvider implements Storage {
-  private storage = new Map<string, string | null>();
-
-  clear(): void {
-    this.storage.clear();
-  }
-
-  getItem(key: string): string | null {
-    return this.storage.get(key) ?? null;
-  }
-
-  key(_: number): string | null {
-    return null;
-  }
-
-  removeItem(key: string): void {
-    this.storage.delete(key);
-  }
-
-  setItem(key: string, value: string): void {
-    this.storage.set(key, value);
-  }
-
-  get length() {
-    return this.storage.size;
-  }
-}
-
-export abstract class AbstractStorage {
-  readonly adapter: Storage = new MemoryStorageProvider();
-
+export class BrowserStorage {
+  readonly adapter: Adapter;
   readonly prefix: string;
   readonly serializer: StorageSerializer;
 
-  constructor({ prefix = "", serializer = JSON }: StorageConfig = {}) {
-    this.prefix = prefix;
-    this.serializer = serializer;
+  constructor(config: StorageConfig = {}) {
+    this.adapter = config.adapter ?? new MemoryStorageProvider();
+    this.prefix = config.prefix ?? "";
+    this.serializer = config.serializer ?? JSON;
   }
 
   get<T>(key: string): T | null {
@@ -55,7 +30,7 @@ export abstract class AbstractStorage {
     try {
       this.adapter.setItem(this.prefix + key, this.toStore(value));
       return true;
-    } catch (e) {}
+    } catch {}
     return false;
   }
 
@@ -84,16 +59,41 @@ export abstract class AbstractStorage {
 
     try {
       return this.serializer.parse(item);
-    } catch (e) {}
+    } catch (e) {
+    }
 
     return (item as T) ?? null;
   }
 }
 
-export class LocalStorage extends AbstractStorage {
-  readonly adapter = window.localStorage;
+export class LocalStorage extends BrowserStorage {
+  constructor(config: Omit<StorageConfig, "adapter"> = {}) {
+    super({ ...config, adapter: window.localStorage });
+  }
 }
 
-export class SessionStorage extends AbstractStorage {
-  readonly adapter = window.sessionStorage;
+export class SessionStorage extends BrowserStorage {
+  constructor(config: Omit<StorageConfig, "adapter"> = {}) {
+    super({ ...config, adapter: window.sessionStorage });
+  }
+}
+
+export class MemoryStorageProvider implements Adapter {
+  private storage = new Map<string, string | null>();
+
+  clear(): void {
+    this.storage.clear();
+  }
+
+  getItem(key: string): string | null {
+    return this.storage.get(key) ?? null;
+  }
+
+  removeItem(key: string): void {
+    this.storage.delete(key);
+  }
+
+  setItem(key: string, value: string): void {
+    this.storage.set(key, value);
+  }
 }
