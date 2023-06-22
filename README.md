@@ -28,7 +28,7 @@ import {
 
 The `LocalStorage` and `SessionStorage` classes serve as helper abstractions over the built-in `window.localStorage` and `window.sessionStorage` web storage mechanisms respectively.
 
-### Local Storage
+### Local Storage Adapter
 
 Local storage is persistent after close.
 
@@ -37,16 +37,12 @@ import { LocalStorage } from "@jmondi/browser-storage";
 
 const storage = new LocalStorage();
 
-storage.set("user1", null);
 storage.set("user2", { email: "hermoine@hogwarts.com", name: "Hermoine" });
-
-console.log(storage.get("user1"));
-// null
 console.log(storage.get("user2"));
 // { email: "hermoine@hogwarts.com", name: "Hermoine" }
 ```
 
-### Session Storage
+### Session Storage Adapter
 
 Session storage is reset when the browser is closed.
 
@@ -55,42 +51,12 @@ import { SessionStorage } from "@jmondi/browser-storage";
 
 const storage = new SessionStorage();
 
-storage.set("user1", null);
 storage.set("user2", { email: "hermoine@hogwarts.com", name: "Hermoine" });
-
-console.log(storage.get("user1"));
-// null
 console.log(storage.get("user2"));
 // { email: "hermoine@hogwarts.com", name: "Hermoine" }
 ```
 
-
-## Configuration
-
-You can optionally provide a configuration object.
-
-- `prefix`: This optional value will be prepended to every key when stored.
-- `serializer`: This optional value can be any object that implements the `StorageSerializer` interface. By default, this is `JSON`.
-
-```ts
-import { BrowserStorage } from "./index.ts";
-
-const localStorage = new LocalStorage({
-  prefix: 'app_', // Optional. Defaults to "".
-  serializer: JSON, // Optional. Defaults to JSON.
-});
-const sessionStorage = new SessionStorage({
-  prefix: 'app_', // Optional. Defaults to "".
-  serializer: JSON, // Optional. Defaults to JSON.
-});
-const browserStorage = new BrowserStorage({
-  prefix: 'app_', // Optional. Defaults to "".
-  serializer: JSON, // Optional. Defaults to JSON.
-  adapter: Adapter, // Optional. Defaults to an InMemoryStorageProvider.
-});
-```
-
-## Custom Storage Adapter
+### Custom Storage Adapter
 
 The BrowserStorage class gives you the option to use a custom storage adapter.
 
@@ -118,7 +84,34 @@ export class CookieAdapter implements Adapter {
 
 const prefix = "app_"
 
-export const cookieStorageService = new BrowserStorage({ prefix, adapter: new CookieAdapter() });
+export const storage = new BrowserStorage({ prefix, adapter: new CookieAdapter() });
+storage.set("user2", { email: "hermoine@hogwarts.com", name: "Hermoine" }, { expires: 5 });
+console.log(storage.get("user2"));
+```
+
+## Configuration
+
+You can optionally provide a configuration object.
+
+- `prefix`: This optional value will be prepended to every key when stored.
+- `serializer`: This optional value can be any object that implements the `StorageSerializer` interface. By default, this is `JSON`.
+
+```ts
+import { BrowserStorage } from "./index.ts";
+
+const localStorage = new LocalStorage({
+  prefix: 'app_', // Optional. Defaults to "".
+  serializer: JSON, // Optional. Defaults to JSON.
+});
+const sessionStorage = new SessionStorage({
+  prefix: 'app_', // Optional. Defaults to "".
+  serializer: JSON, // Optional. Defaults to JSON.
+});
+const browserStorage = new BrowserStorage({
+  prefix: 'app_', // Optional. Defaults to "".
+  serializer: JSON, // Optional. Defaults to JSON.
+  adapter: Adapter, // Optional. Defaults to an InMemoryStorageProvider.
+});
 ```
 
 ## Custom Serializers
