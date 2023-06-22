@@ -58,13 +58,13 @@ export class BrowserStorage {
       .keys(group)
       .reduce((prev, next) => ({
         ...prev,
-        [next]: this.define(group[next]),
+        [next]: this.define<string>(group[next]),
       }), {} as Record<keyof GenericRecord, ReturnType<BrowserStorage["define"]>>);
   }
 
-  define<T>(key: string, config?: unknown) {
+  define<DefinedType>(key: string, config?: unknown) {
     return {
-      get: (): T | null => this.get<T>(key),
+      get: <T = DefinedType>(): T | null => this.get<T>(key),
       set: (value: unknown, innerConfig?: unknown) => this.set(key, value, innerConfig ?? config),
       remove: () => this.remove(key),
     };
