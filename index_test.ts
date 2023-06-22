@@ -98,10 +98,11 @@ Deno.test("adapters with custom setItem config", async (t) => {
   }
 
   await t.step("can send an optional config", () => {
-    const testing = new TestingAdapter();
+    const adapter = new TestingAdapter();
+    const testing = new BrowserStorage({ adapter });
 
-    testing.setItem("1", "hello world", { config: "test" });
+    testing.set("1", "hello world", { config: "test" });
 
-    assertEquals(testing.config, { config: "test" });
+    assertEquals(adapter.config, { config: "test" });
   });
 });
