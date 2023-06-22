@@ -62,7 +62,7 @@ The BrowserStorage class gives you the option to use a custom storage adapter.
 
 Underneath, both `LocalStorage` and `SessionStorage` extend the `BrowserStorage` class, which operates over an arbitrary storage adapter. This design enables you to extend `BrowserStorage` to interface with any custom storage provider of your choice.
 
-For a custom storage provider to work correctly, it needs to adhere to the browser's [Storage interface](https://developer.mozilla.org/en-US/docs/Web/API/Storage) – that is, it must implement methods such as `getItem`, `setItem`, `removeItem`, and `clear`, along with the `length` property. As an example, the provided `MemoryStorageProvider` class is a valid storage provider that stores data in an in-memory JavaScript map.
+For a custom storage provider to work correctly, it needs to implement the `Adapter` interface.
 
 ```ts
 import { type Adapter, BrowserStorage } from "@jmondi/browser-storage";
