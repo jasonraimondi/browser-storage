@@ -49,8 +49,25 @@ export class BrowserStorage {
     return false;
   }
 
-  remove(key: string) {
+  remove(key: string): void {
     this.adapter.removeItem(this.prefix + key);
+  }
+
+  defineGroup<GenericRecord extends Record<string, string>>(group: GenericRecord) {
+    return Object
+      .keys(group)
+      .reduce((prev, next) => ({
+        ...prev,
+        [next]: this.define(group[next]),
+      }), {} as Record<keyof GenericRecord, ReturnType<BrowserStorage["define"]>>);
+  }
+
+  define<T>(key: string, config?: unknown) {
+    return {
+      get: () => this.get<T>(key),
+      set: (value: unknown, innerConfig?: unknown) => this.set(key, value, innerConfig ?? config),
+      remove: () => this.remove(key),
+    };
   }
 
   private toStore(value: unknown): string {
@@ -70,7 +87,8 @@ export class BrowserStorage {
 
     try {
       return this.serializer.parse(item);
-    } catch {}
+    } catch (e) {
+    }
 
     return (item as T) ?? null;
   }

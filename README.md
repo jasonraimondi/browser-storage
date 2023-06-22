@@ -131,3 +131,43 @@ export class SuperJsonSerializer implements StorageSerializer {
   }
 }
 ```
+
+## Defining a named group of keys
+
+### The `define` method 
+
+This method allows the creation of named keys in storage. Each key is associated with a type. Here's an example:
+
+```typescript
+const storage = new BrowserStorage(); // or LocalStorage, SessionStorage, etc.
+const GROUP = {
+  token: storage.define<string>("access_token"),
+  user: storage.define<{ email: string }>("user_info"),
+};
+GROUP.token.set("ABC123");
+GROUP.user.set({ email: "jason@example.com" });
+
+GROUP.token.get(); // "ABC123"
+GROUP.user.get(); // { email: "jason@example" }
+```
+
+In this example, `GROUP` has two keys: `token` and `user`.
+
+### The `defineGroup` method
+
+The `defineGroup` method provides a more concise way to define named keys. Here's an example:
+
+```typescript
+const storage = new BrowserStorage(); // or LocalStorage, SessionStorage, etc.
+
+const GROUP = storage.defineGroup({
+  token: "refresh_token",
+  user: "user_info",
+});
+
+GROUP.token.set("newtoken");
+GROUP.user.set({ email: "jason@example.com" });
+
+GROUP.token.get(); // "newtoken"
+GROUP.user.get(); // { email: "jason@example" }
+```
