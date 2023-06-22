@@ -1,34 +1,49 @@
-export type StorageSerializer = {
+export type Serializer = {
   parse<T = unknown>(value: string): T;
   stringify<T = unknown>(value: T): string;
 };
 
-export type Adapter = Pick<Storage, "clear" | "getItem" | "removeItem" | "setItem">;
+/**
+ * @deprecated use Serializer instead
+ */
+export type StorageSerializer = Serializer;
+
+export type Adapter = {
+  clear?(): void;
+  getItem(key: string): string | null;
+  removeItem(key: string): void;
+  setItem(key: string, value: string): void;
+  setItem(key: string, value: string, config?: unknown): void;
+};
 
 export type StorageConfig = {
   prefix?: string;
-  serializer?: StorageSerializer;
+  serializer?: Serializer;
   adapter?: Adapter;
 };
 
 export class BrowserStorage {
   readonly adapter: Adapter;
   readonly prefix: string;
-  readonly serializer: StorageSerializer;
+  readonly serializer: Serializer;
 
   constructor(config: StorageConfig = {}) {
-    this.adapter = config.adapter ?? new MemoryStorageProvider();
+    this.adapter = config.adapter ?? new MemoryStorageAdapter();
     this.prefix = config.prefix ?? "";
     this.serializer = config.serializer ?? JSON;
+  }
+
+  clear() {
+    this.adapter.clear?.();
   }
 
   get<T>(key: string): T | null {
     return this.fromStore<T>(this.adapter.getItem(this.prefix + key));
   }
 
-  set(key: string, value?: unknown): boolean {
+  set(key: string, value?: unknown, config?: unknown): boolean {
     try {
-      this.adapter.setItem(this.prefix + key, this.toStore(value));
+      this.adapter.setItem(this.prefix + key, this.toStore(value), config);
       return true;
     } catch {}
     return false;
@@ -36,10 +51,6 @@ export class BrowserStorage {
 
   remove(key: string) {
     this.adapter.removeItem(this.prefix + key);
-  }
-
-  clear(): void {
-    this.adapter.clear();
   }
 
   private toStore(value: unknown): string {
@@ -59,8 +70,7 @@ export class BrowserStorage {
 
     try {
       return this.serializer.parse(item);
-    } catch (e) {
-    }
+    } catch {}
 
     return (item as T) ?? null;
   }
@@ -78,7 +88,7 @@ export class SessionStorage extends BrowserStorage {
   }
 }
 
-export class MemoryStorageProvider implements Adapter {
+export class MemoryStorageAdapter implements Adapter {
   private storage = new Map<string, string | null>();
 
   clear(): void {
@@ -95,5 +105,15 @@ export class MemoryStorageProvider implements Adapter {
 
   setItem(key: string, value: string): void {
     this.storage.set(key, value);
+  }
+}
+
+/**
+ * @deprecated use MemoryStorageAdapter instead
+ */
+export class MemoryStorageProvider extends MemoryStorageAdapter {
+  constructor() {
+    super();
+    console.log("MemoryStorageProvider is deprecated, use MemoryStorageAdapter instead");
   }
 }

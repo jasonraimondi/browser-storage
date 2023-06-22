@@ -99,14 +99,10 @@ Underneath, both `LocalStorage` and `SessionStorage` extend the `BrowserStorage`
 For a custom storage provider to work correctly, it needs to adhere to the browser's [Storage interface](https://developer.mozilla.org/en-US/docs/Web/API/Storage) – that is, it must implement methods such as `getItem`, `setItem`, `removeItem`, and `clear`, along with the `length` property. As an example, the provided `MemoryStorageProvider` class is a valid storage provider that stores data in an in-memory JavaScript map.
 
 ```ts
-import { type Adapter, SessionStorage } from "@jmondi/browser-storage";
-import Cookies from "js-cookie";
+import { type Adapter, BrowserStorage } from "@jmondi/browser-storage";
+import Cookies, { type CookieAttributes } from "js-cookie";
 
 export class CookieAdapter implements Adapter {
-  clear(): void {
-    throw new Error("CookieStorage.clear is not implemented")
-  }
-
   getItem(key: string): string | null {
     return Cookies.get(key) ?? null;
   }
@@ -115,8 +111,8 @@ export class CookieAdapter implements Adapter {
     Cookies.remove(key);
   }
 
-  setItem(key: string, value: string): void {
-    Cookies.set(key, value, { expires: 7 });
+  setItem(key: string, value: string, config: CookieAttributes): void {
+    Cookies.set(key, value, config);
   }
 }
 

@@ -1,4 +1,10 @@
-import { BrowserStorage, LocalStorage, MemoryStorageProvider, SessionStorage } from "./index.ts";
+import {
+  BrowserStorage,
+  LocalStorage,
+  MemoryStorageAdapter,
+  MemoryStorageProvider,
+  SessionStorage,
+} from "./index.ts";
 import { assertEquals } from "https://deno.land/std@0.175.0/testing/asserts.ts";
 
 Deno.test("locale storage spec", async (t) => {
@@ -21,7 +27,7 @@ Deno.test("session storage spec", async (t) => {
   });
 });
 
-Deno.test("abstract storage spec", async (t) => {
+Deno.test("browser storage spec", async (t) => {
   let browserStorage;
 
   await t.step("can set and remove values", () => {
@@ -32,7 +38,7 @@ Deno.test("abstract storage spec", async (t) => {
     assertEquals(browserStorage.get("one"), null);
   });
 
-  await t.step("can set, get, and clear fields and objects", () => {
+  await t.step("can set, get, and remove fields and objects", () => {
     browserStorage = new BrowserStorage();
 
     browserStorage.set("one", { hello: "world" });
@@ -44,7 +50,10 @@ Deno.test("abstract storage spec", async (t) => {
     assertEquals(browserStorage.get("3"), null);
     assertEquals(browserStorage.get("4"), null);
 
-    browserStorage.clear();
+    browserStorage.remove("one");
+    browserStorage.remove("2");
+    browserStorage.remove("3");
+    browserStorage.remove("4");
     assertEquals(browserStorage.get("one"), null);
     assertEquals(browserStorage.get("2"), null);
     assertEquals(browserStorage.get("3"), null);
@@ -75,5 +84,24 @@ Deno.test("abstract storage spec", async (t) => {
 
     browserStorage.set("1", "hello world");
     assertEquals(browserStorage.get("1"), null);
+  });
+});
+
+Deno.test("adapters with custom setItem config", async (t) => {
+  class TestingAdapter extends MemoryStorageAdapter {
+    public config: unknown = null;
+
+    setItem(key: string, value: string, config?: {}) {
+      super.setItem(key, value);
+      this.config = config;
+    }
+  }
+
+  await t.step("can send an optional config", () => {
+    const testing = new TestingAdapter();
+
+    testing.setItem("1", "hello world", { config: "test" });
+
+    assertEquals(testing.config, { config: "test" });
   });
 });
