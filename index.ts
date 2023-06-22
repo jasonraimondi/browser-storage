@@ -64,7 +64,7 @@ export class BrowserStorage {
 
   define<T>(key: string, config?: unknown) {
     return {
-      get: () => this.get<T>(key),
+      get: (): T | null => this.get<T>(key),
       set: (value: unknown, innerConfig?: unknown) => this.set(key, value, innerConfig ?? config),
       remove: () => this.remove(key),
     };
