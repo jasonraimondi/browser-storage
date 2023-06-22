@@ -8,162 +8,102 @@ An abstracted storage library for **browser** applications that interfaces with 
 [![Test Coverage](https://img.shields.io/codeclimate/coverage/jasonraimondi/browser-storage?style=flat-square)](https://codeclimate.com/github/jasonraimondi/browser-storage/test_coverage)
 [![NPM Downloads](https://img.shields.io/npm/dt/@jmondi/browser-storage?label=npm%20downloads&style=flat-square)](https://www.npmjs.com/package/@jmondi/browser-storage)
 
-## Install (npm)
+## Installation
 
 ```bash
 pnpm add @jmondi/browser-storage
 ```
 
-### Deno
-
+For Deno:
 ```ts
-import { 
-  LocaleStorage, 
-  SessionStorage, 
-  BrowserStorage 
-} from "https://deno.land/x/browser_storage"
+import { LocaleStorage, SessionStorage, BrowserStorage } from "https://deno.land/x/browser_storage"
 ```
 
 ## Usage
 
-The `LocalStorage` and `SessionStorage` classes serve as helper abstractions over the built-in `window.localStorage` and `window.sessionStorage` web storage mechanisms respectively.
+`LocalStorage` and `SessionStorage` are wrappers for `window.localStorage` and `window.sessionStorage`.
 
-### Local Storage Adapter
+### LocalStorage 
 
-Local storage is persistent after close.
+Persists after closing browser:
 
 ```typescript
 import { LocalStorage } from "@jmondi/browser-storage";
 
 const storage = new LocalStorage();
-
 storage.set("user2", { email: "hermoine@hogwarts.com", name: "Hermoine" });
-console.log(storage.get("user2"));
-// { email: "hermoine@hogwarts.com", name: "Hermoine" }
+console.log(storage.get("user2")); // { email: "hermoine@hogwarts.com", name: "Hermoine" }
 ```
 
-### Session Storage Adapter
+### SessionStorage 
 
-Session storage is reset when the browser is closed.
+Resets on browser close:
 
 ```typescript
 import { SessionStorage } from "@jmondi/browser-storage";
 
 const storage = new SessionStorage();
-
 storage.set("user2", { email: "hermoine@hogwarts.com", name: "Hermoine" });
-console.log(storage.get("user2"));
-// { email: "hermoine@hogwarts.com", name: "Hermoine" }
+console.log(storage.get("user2")); // { email: "hermoine@hogwarts.com", name: "Hermoine" }
 ```
 
-### Custom Storage Adapter
-
-The BrowserStorage class gives you the option to use a custom storage adapter.
-
-Underneath, both `LocalStorage` and `SessionStorage` extend the `BrowserStorage` class, which operates over an arbitrary storage adapter. This design enables you to extend `BrowserStorage` to interface with any custom storage provider of your choice.
-
-For a custom storage provider to work correctly, it needs to implement the `Adapter` interface.
+### Custom storage adapter:
 
 ```ts
 import { type Adapter, BrowserStorage } from "@jmondi/browser-storage";
 import Cookies, { type CookieAttributes } from "js-cookie";
 
 export class CookieAdapter implements Adapter {
-  getItem(key: string): string | null {
-    return Cookies.get(key) ?? null;
-  }
-
-  removeItem(key: string): void {
-    Cookies.remove(key);
-  }
-
-  setItem(key: string, value: string, config: CookieAttributes): void {
-    Cookies.set(key, value, config);
-  }
+  getItem(key: string): string | null { return Cookies.get(key) ?? null; }
+  removeItem(key: string): void { Cookies.remove(key); }
+  setItem(key: string, value: string, config: CookieAttributes): void { Cookies.set(key, value, config); }
 }
 
-const prefix = "app_"
-
-export const storage = new BrowserStorage({ prefix, adapter: new CookieAdapter() });
+const storage = new BrowserStorage({ prefix: "app_", adapter: new CookieAdapter() });
 storage.set("user2", { email: "hermoine@hogwarts.com", name: "Hermoine" }, { expires: 5 });
 console.log(storage.get("user2"));
 ```
 
+## Defining Storage Groups
+
+- Use `define` for individual keys:
+
+```typescript
+const storage = new BrowserStorage();
+const USER_COOKIE = storage.define<{ email: string }>("user_info");
+USER_COOKIE.set({ email: "jason@example.com" });
+```
+
+- Use `defineGroup` for key groups:
+
+```typescript
+const storage = new BrowserStorage();
+
+const GROUP = storage.defineGroup({ token: "refresh_token", user: "user_info" });
+GROUP.token.set("newtoken");
+GROUP.user.set({ email: "jason@example.com" });
+```
+
 ## Configuration
 
-You can optionally provide a configuration object.
-
-- `prefix`: This optional value will be prepended to every key when stored.
-- `serializer`: This optional value can be any object that implements the `StorageSerializer` interface. By default, this is `JSON`.
+Optional settings: `prefix` (key prefix), `serializer` (defaults to `JSON`).
 
 ```ts
 import { BrowserStorage } from "./index.ts";
 
-const localStorage = new LocalStorage({
-  prefix: 'app_', // Optional. Defaults to "".
-  serializer: JSON, // Optional. Defaults to JSON.
-});
-const sessionStorage = new SessionStorage({
-  prefix: 'app_', // Optional. Defaults to "".
-  serializer: JSON, // Optional. Defaults to JSON.
-});
-const browserStorage = new BrowserStorage({
-  prefix: 'app_', // Optional. Defaults to "".
-  serializer: JSON, // Optional. Defaults to JSON.
-  adapter: Adapter, // Optional. Defaults to an InMemoryStorageProvider.
-});
+const storage = new LocalStorage({ prefix: 'app_', serializer: JSON });
 ```
 
 ## Custom Serializers
 
-The `StorageSerializer` is an interface which requires the implementation of two methods: `parse` and `stringify`. The default example of this is the built in [JSON](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON) object.
+To create a custom serializer, implement `parse` and `stringify`.
 
 ```ts
 import superjson from "superjson";
 import { StorageSerializer } from "@jmondi/browser-storage";
 
 export class SuperJsonSerializer implements StorageSerializer {
-  parse<T = unknown>(value: string): T {
-    return superjson.parse(value);
-  }
-  stringify<T = unknown>(value: T): string {
-    return superjson.stringify(value);
-  }
+  parse<T = unknown>(value: string): T { return superjson.parse(value); }
+  stringify<T = unknown>(value: T): string { return superjson.stringify(value); }
 }
-```
-
-## Defining a named group of keys
-
-### The `define` method 
-
-This method allows the creation of named keys in storage. Each key is associated with a type. Here's an example:
-
-```typescript
-const storage = new BrowserStorage(); // or LocalStorage, SessionStorage, etc.
-const USER_COOKIE = storage.define<{ email: string }>("user_info");
-USER_COOKIE.set({ email: "jason@example.com" });
-USER_COOKIE.get(); // { email: "jason@example" }
-USER_COOKIE.remove()
-USER_COOKIE.get(); // null
-```
-
-In this example, `GROUP` has two keys: `token` and `user`.
-
-### The `defineGroup` method
-
-The `defineGroup` method provides a more concise way to define named keys. Here's an example:
-
-```typescript
-const storage = new BrowserStorage(); // or LocalStorage, SessionStorage, etc.
-
-const GROUP = storage.defineGroup({
-  token: "refresh_token",
-  user: "user_info",
-});
-
-GROUP.token.set("newtoken");
-GROUP.user.set({ email: "jason@example.com" });
-
-GROUP.token.get(); // "newtoken"
-GROUP.user.get(); // { email: "jason@example" }
 ```
