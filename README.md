@@ -140,15 +140,11 @@ This method allows the creation of named keys in storage. Each key is associated
 
 ```typescript
 const storage = new BrowserStorage(); // or LocalStorage, SessionStorage, etc.
-const GROUP = {
-  token: storage.define<string>("access_token"),
-  user: storage.define<{ email: string }>("user_info"),
-};
-GROUP.token.set("ABC123");
-GROUP.user.set({ email: "jason@example.com" });
-
-GROUP.token.get(); // "ABC123"
-GROUP.user.get(); // { email: "jason@example" }
+const USER_COOKIE = storage.define<{ email: string }>("user_info");
+USER_COOKIE.set({ email: "jason@example.com" });
+USER_COOKIE.get(); // { email: "jason@example" }
+USER_COOKIE.remove()
+USER_COOKIE.get(); // null
 ```
 
 In this example, `GROUP` has two keys: `token` and `user`.
