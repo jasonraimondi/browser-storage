@@ -45,7 +45,8 @@ export class BrowserStorage {
     try {
       this.adapter.setItem(this.prefix + key, this.toStore(value), config);
       return true;
-    } catch {}
+    } catch {
+    }
     return false;
   }
 
@@ -96,13 +97,27 @@ export class BrowserStorage {
 
 export class LocalStorage extends BrowserStorage {
   constructor(config: Omit<StorageConfig, "adapter"> = {}) {
-    super({ ...config, adapter: window.localStorage });
+    let adapter: Adapter = window.localStorage;
+    if (!(adapter instanceof Storage)) {
+      adapter = new MemoryStorageAdapter();
+      console.log(
+        "[@jmondi/browser-storage] window.localStorage is unavailable, falling back to an in memory storage adapter",
+      );
+    }
+    super({ ...config, adapter });
   }
 }
 
 export class SessionStorage extends BrowserStorage {
   constructor(config: Omit<StorageConfig, "adapter"> = {}) {
-    super({ ...config, adapter: window.sessionStorage });
+    let adapter: Adapter = window.sessionStorage;
+    if (!(adapter instanceof Storage)) {
+      adapter = new MemoryStorageAdapter();
+      console.log(
+        "[@jmondi/browser-storage] window.sessionStorage is unavailable, falling back to an in memory storage adapter",
+      );
+    }
+    super({ ...config, adapter });
   }
 }
 
@@ -132,6 +147,8 @@ export class MemoryStorageAdapter implements Adapter {
 export class MemoryStorageProvider extends MemoryStorageAdapter {
   constructor() {
     super();
-    console.log("MemoryStorageProvider is deprecated, use MemoryStorageAdapter instead");
+    console.log(
+      "[@jmondi/browser-storage] MemoryStorageProvider is deprecated, use MemoryStorageAdapter instead",
+    );
   }
 }
