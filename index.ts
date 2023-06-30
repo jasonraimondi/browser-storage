@@ -97,11 +97,13 @@ export class BrowserStorage {
 
 export class LocalStorage extends BrowserStorage {
   constructor(config: Omit<StorageConfig, "adapter"> = {}) {
-    let adapter: Adapter = window.localStorage;
-    if (!(adapter instanceof Storage)) {
-      adapter = new MemoryStorageAdapter();
+    let adapter: Adapter = new MemoryStorageAdapter();
+    try {
+      adapter = window.localStorage;
+    } catch {
       console.log(
-        "[@jmondi/browser-storage] window.localStorage is unavailable, falling back to an in memory storage adapter",
+        "[@jmondi/browser-storage]",
+        "localStorage is unavailable, falling back to an in memory storage",
       );
     }
     super({ ...config, adapter });
@@ -110,11 +112,13 @@ export class LocalStorage extends BrowserStorage {
 
 export class SessionStorage extends BrowserStorage {
   constructor(config: Omit<StorageConfig, "adapter"> = {}) {
-    let adapter: Adapter = window.sessionStorage;
-    if (!(adapter instanceof Storage)) {
-      adapter = new MemoryStorageAdapter();
+    let adapter: Adapter = new MemoryStorageAdapter();
+    try {
+      adapter = window.sessionStorage;
+    } catch {
       console.log(
-        "[@jmondi/browser-storage] window.sessionStorage is unavailable, falling back to an in memory storage adapter",
+        "[@jmondi/browser-storage]",
+        "sessionStorage is unavailable, falling back to in memory storage",
       );
     }
     super({ ...config, adapter });
