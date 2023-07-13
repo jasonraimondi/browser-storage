@@ -66,8 +66,7 @@ export class BrowserStorage<SetConfig = unknown> {
   define<DefinedType>(key: string, defaultConfig?: SetConfig) {
     return {
       get: <T = DefinedType>(): T | null => this.get<T>(key),
-      set: (value: unknown, overrideConfig?: SetConfig) =>
-        this.set(key, value, overrideConfig ?? defaultConfig),
+      set: (value: unknown, config?: SetConfig) => this.set(key, value, config ?? defaultConfig),
       remove: () => this.remove(key),
     };
   }
