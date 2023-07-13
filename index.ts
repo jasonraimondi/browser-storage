@@ -22,6 +22,12 @@ export type StorageConfig = {
   adapter?: Adapter;
 };
 
+export type DefineResponse<SetConfig = unknown> = {
+  get<T = unknown>(): T | null;
+  set(value: unknown, config?: SetConfig): boolean;
+  remove(): void;
+};
+
 export class BrowserStorage<SetConfig = unknown> {
   readonly adapter: Adapter<SetConfig>;
   readonly prefix: string;
@@ -54,16 +60,18 @@ export class BrowserStorage<SetConfig = unknown> {
     this.adapter.removeItem(this.prefix + key);
   }
 
-  defineGroup<GenericRecord extends Record<string, string>>(group: GenericRecord) {
+  defineGroup<GenericRecord extends Record<string, string>>(
+    group: GenericRecord,
+  ): Record<keyof GenericRecord, DefineResponse<SetConfig>> {
     return Object
       .keys(group)
       .reduce((prev, next) => ({
         ...prev,
         [next]: this.define<string>(group[next]),
-      }), {} as Record<keyof GenericRecord, ReturnType<BrowserStorage["define"]>>);
+      }), {} as Record<keyof GenericRecord, DefineResponse<SetConfig>>);
   }
 
-  define<DefinedType>(key: string, defaultConfig?: SetConfig) {
+  define<DefinedType>(key: string, defaultConfig?: SetConfig): DefineResponse<SetConfig> {
     return {
       get: <T = DefinedType>(): T | null => this.get<T>(key),
       set: (value: unknown, config?: SetConfig) => this.set(key, value, config ?? defaultConfig),
