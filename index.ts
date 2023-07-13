@@ -8,12 +8,12 @@ export type Serializer = {
  */
 export type StorageSerializer = Serializer;
 
-export type Adapter = {
+export type Adapter<SetConfig = unknown> = {
   clear?(): void;
   getItem(key: string): string | null;
   removeItem(key: string): void;
   setItem(key: string, value: string): void;
-  setItem(key: string, value: string, config?: unknown): void;
+  setItem(key: string, value: string, config?: SetConfig): void;
 };
 
 export type StorageConfig = {
@@ -22,8 +22,8 @@ export type StorageConfig = {
   adapter?: Adapter;
 };
 
-export class BrowserStorage {
-  readonly adapter: Adapter;
+export class BrowserStorage<SetConfig = unknown> {
+  readonly adapter: Adapter<SetConfig>;
   readonly prefix: string;
   readonly serializer: Serializer;
 
@@ -41,7 +41,7 @@ export class BrowserStorage {
     return this.fromStore<T>(this.adapter.getItem(this.prefix + key));
   }
 
-  set(key: string, value?: unknown, config?: unknown): boolean {
+  set(key: string, value?: unknown, config?: SetConfig): boolean {
     try {
       this.adapter.setItem(this.prefix + key, this.toStore(value), config);
       return true;
@@ -63,10 +63,11 @@ export class BrowserStorage {
       }), {} as Record<keyof GenericRecord, ReturnType<BrowserStorage["define"]>>);
   }
 
-  define<DefinedType>(key: string, config?: unknown) {
+  define<DefinedType>(key: string, defaultConfig?: SetConfig) {
     return {
       get: <T = DefinedType>(): T | null => this.get<T>(key),
-      set: (value: unknown, innerConfig?: unknown) => this.set(key, value, innerConfig ?? config),
+      set: (value: unknown, overrideConfig?: SetConfig) =>
+        this.set(key, value, overrideConfig ?? defaultConfig),
       remove: () => this.remove(key),
     };
   }
