@@ -8,7 +8,7 @@ An abstracted storage library for **browser** applications that interfaces with 
 [![Test Coverage](https://img.shields.io/codeclimate/coverage/jasonraimondi/browser-storage?style=flat-square)](https://codeclimate.com/github/jasonraimondi/browser-storage/test_coverage)
 [![NPM Downloads](https://img.shields.io/npm/dt/@jmondi/browser-storage?label=npm%20downloads&style=flat-square)](https://www.npmjs.com/package/@jmondi/browser-storage)
 ![npm bundle size](https://img.shields.io/bundlephobia/min/%40jmondi%2Fbrowser-storage)
-![npm bundle size](https://img.shields.io/bundlephobia/minzip/%40jmondi%2Fbrowser-storage)
+![npm gzip bundle size](https://img.shields.io/bundlephobia/minzip/%40jmondi%2Fbrowser-storage)
 
 
 ## Installation
@@ -26,21 +26,22 @@ import { LocaleStorage, SessionStorage, BrowserStorage } from "https://deno.land
 
 `LocalStorage` and `SessionStorage` are wrappers for `window.localStorage` and `window.sessionStorage`.
 
-### LocalStorage 
+### The LocalStorage class 
 
-Persists after closing browser:
+Persists after closing browser
 
 ```typescript
 import { LocalStorage } from "@jmondi/browser-storage";
 
 const storage = new LocalStorage();
-storage.set("user2", { email: "hermoine@hogwarts.com", name: "Hermoine" });
-console.log(storage.get("user2")); // { email: "hermoine@hogwarts.com", name: "Hermoine" }
+storage.set("user2", { email: "hermoine@hogwarts.com" });
+console.log(storage.get("user2")); 
+// { email: "hermoine@hogwarts.com" }
 ```
 
-### SessionStorage 
+### The SessionStorage class 
 
-Resets on browser close:
+Resets on browser close
 
 ```typescript
 import { SessionStorage } from "@jmondi/browser-storage";
@@ -50,7 +51,7 @@ storage.set("user2", { email: "hermoine@hogwarts.com", name: "Hermoine" });
 console.log(storage.get("user2")); // { email: "hermoine@hogwarts.com", name: "Hermoine" }
 ```
 
-### Custom storage adapter:
+### Example Custom storage adapter
 
 ```ts
 import { type Adapter, BrowserStorage } from "@jmondi/browser-storage";
@@ -71,26 +72,6 @@ export class CookieAdapter implements Adapter {
 const storage = new BrowserStorage<CookieAttributes>({ prefix: "app_", adapter: new CookieAdapter() });
 storage.set("user2", { email: "hermoine@hogwarts.com", name: "Hermoine" }, { expires: 5 });
 console.log(storage.get("user2"));
-```
-
-## Defining Storage Groups
-
-- Use `define` for individual keys:
-
-```typescript
-const storage = new BrowserStorage();
-const USER_COOKIE = storage.define<{ email: string }>("user_info");
-USER_COOKIE.set({ email: "jason@example.com" });
-```
-
-- Use `defineGroup` for key groups:
-
-```typescript
-const storage = new BrowserStorage();
-
-const GROUP = storage.defineGroup({ token: "refresh_token", user: "user_info" });
-GROUP.token.set("newtoken");
-GROUP.user.set({ email: "jason@example.com" });
 ```
 
 ## Configuration
@@ -119,4 +100,40 @@ export class SuperJsonSerializer implements StorageSerializer {
     return superjson.stringify(value); 
   }
 }
+```
+
+## Advanced Usage / Organization Techniques
+
+With defined storage groups you can organize related data into named groups, simplifying access and management.
+
+### Defining Storage Key
+
+Use `define` for individual keys. In this example, 
+
+```typescript
+type UserInfo = { email: string };
+const storage = new LocalStorage(); // define is available on all BrowserStorage implementations
+
+const USER_INFO = storage.define<UserInfo>("user_info");
+
+USER_INFO.set({ email: "jason@example.com" });
+USER_INFO.get(); // gets the latest value
+USER_INFO.remove(); // removes the value
+```
+
+### Defining Storage Groups
+
+Use `defineGroup` for key groups.
+
+```typescript
+const storage = new LocalStorage(); // defineGroup is available on all BrowserStorage implementations
+
+const GROUP = storage.defineGroup({ token: "refresh_token", user: "user_info" });
+
+GROUP.token.set("newtoken");
+GROUP.token.get();
+GROUP.token.remove();
+GROUP.user.set({ email: "jason@example.com" });
+GROUP.user.get();
+GROUP.user.remove();
 ```
