@@ -1,4 +1,6 @@
 import {
+  AsyncAdapter,
+  AsyncBrowserStorage,
   BrowserStorage,
   LocalStorage,
   MemoryStorageAdapter,
@@ -26,6 +28,32 @@ Deno.test("session storage spec", async (t) => {
     assertEquals(storage.get("one"), "hello world");
     storage.remove("one");
     assertEquals(storage.get("one"), null);
+  });
+});
+
+Deno.test("async browser storage", async (t) => {
+  class TestAsyncAdapter implements AsyncAdapter {
+    private storage = new Map<string, string | null>();
+
+    async getItem(key: string, config?: {}) {
+      return this.storage.get(key) ?? null;
+    }
+
+    async setItem(key: string, value: string) {
+      this.storage.set(key, value);
+    }
+
+    async removeItem(key: string, config?: {}) {
+      this.storage.delete(key);
+    }
+  }
+
+  await t.step("can set and remove values", async () => {
+    const storage = new AsyncBrowserStorage({ adapter: new TestAsyncAdapter() });
+    await storage.set("one", "hello world");
+    assertEquals(await storage.get("one"), "hello world");
+    await storage.remove("one");
+    assertEquals(await storage.get("one"), null);
   });
 });
 

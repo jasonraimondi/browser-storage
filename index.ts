@@ -3,11 +3,6 @@ export type Serializer = {
   stringify<T = unknown>(value: T): string;
 };
 
-/**
- * @deprecated use Serializer instead
- */
-export type StorageSerializer = Serializer;
-
 export type Adapter<SetConfig = unknown> = {
   clear?(): void;
   getItem(key: string): string | null;
@@ -244,3 +239,8 @@ export class MemoryStorageProvider extends MemoryStorageAdapter {
     );
   }
 }
+
+/**
+ * @deprecated use Serializer instead
+ */
+export type StorageSerializer = Serializer;
