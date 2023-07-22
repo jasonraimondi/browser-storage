@@ -33,7 +33,7 @@ export type StorageConfig = {
 export type AsyncStorageConfig = {
   prefix?: string;
   serializer?: Serializer;
-  adapter?: AsyncAdapter;
+  adapter: AsyncAdapter;
 };
 
 export type DefineResponse<SetConfig = unknown> = {
@@ -135,7 +135,7 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
   readonly prefix: string;
   readonly serializer: Serializer;
 
-  constructor(config: StorageConfig & { adapter: AsyncAdapter<SetConfig> }) {
+  constructor(config: AsyncStorageConfig) {
     super();
     this.adapter = config.adapter;
     this.prefix = config.prefix ?? "";
