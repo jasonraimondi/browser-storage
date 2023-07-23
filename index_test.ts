@@ -55,6 +55,23 @@ Deno.test("async browser storage", async (t) => {
     await storage.remove("one");
     assertEquals(await storage.get("one"), null);
   });
+
+  await t.step("can use cache", async () => {
+    const storage = new AsyncBrowserStorage({ adapter: new TestAsyncAdapter() });
+    storage.setCache("one", "hello world");
+    assertEquals(storage.getCache("one"), "hello world");
+    storage.removeCache("one");
+    assertEquals(storage.getCache("one"), null);
+  });
+
+  await t.step("can sync cache", async () => {
+    const storage = new AsyncBrowserStorage({ adapter: new TestAsyncAdapter() });
+    storage.setCache("one", "hello world");
+    assertEquals(storage.getCache("one"), "hello world");
+    assertEquals(await storage.get("one"), null);
+    await storage.syncCache();
+    assertEquals(await storage.get("one"), "hello world");
+  });
 });
 
 Deno.test("browser storage spec", async (t) => {

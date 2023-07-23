@@ -127,6 +127,7 @@ export class BrowserStorage<SetConfig = unknown> extends AbstractBrowserStorage<
 
 export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserStorage<SetConfig> {
   readonly adapter: AsyncAdapter<SetConfig>;
+  readonly cachedAdapter = new MemoryStorageAdapter();
   readonly prefix: string;
   readonly serializer: Serializer;
 
@@ -137,8 +138,26 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
     this.serializer = config.serializer ?? JSON;
   }
 
-  clear() {
-    this.adapter.clear?.();
+  async syncCache() {
+    for (let [key, value] of this.cachedAdapter.entries()) {
+      await this.adapter.setItem(key, value);
+    }
+  }
+
+  getCache(key: string) {
+    return this.cachedAdapter.getItem(key);
+  }
+
+  setCache(key: string, value?: string) {
+    if (value) this.cachedAdapter.setItem(key, value);
+  }
+
+  removeCache(key: string) {
+    this.cachedAdapter.removeItem(key);
+  }
+
+  async clear() {
+    await this.adapter.clear?.();
   }
 
   async get<T>(key: string): Promise<T | null> {
@@ -209,7 +228,11 @@ export class SessionStorage extends BrowserStorage {
 }
 
 export class MemoryStorageAdapter implements Adapter {
-  private storage = new Map<string, string | null>();
+  private storage = new Map<string, string>();
+
+  entries() {
+    return this.storage.entries();
+  }
 
   clear(): void {
     this.storage.clear();
