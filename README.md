@@ -55,21 +55,24 @@ console.log(storage.get("user2")); // { email: "hermoine@hogwarts.com", name: "H
 
 ```ts
 import { type Adapter, BrowserStorage } from "@jmondi/browser-storage";
-import Cookies, { type CookieAttributes } from "js-cookie";
+import Cookies from "js-cookie";
 
 export class CookieAdapter implements Adapter {
-  getItem(key: string): string | null { 
-    return Cookies.get(key) ?? null; 
+  getItem(key: string): string | null {
+    return Cookies.get(key) ?? null;
   }
-  removeItem(key: string): void { 
-    Cookies.remove(key); 
+  removeItem(key: string): void {
+    Cookies.remove(key);
   }
-  setItem(key: string, value: string, config: CookieAttributes): void { 
-    Cookies.set(key, value, config); 
+  setItem(key: string, value: string, config?: Cookies.CookieAttributes): void {
+    Cookies.set(key, value, config);
   }
 }
 
-const storage = new BrowserStorage<CookieAttributes>({ prefix: "app_", adapter: new CookieAdapter() });
+const storage = new BrowserStorage<Cookies.CookieAttributes>({
+  prefix: "app_",
+  adapter: new CookieAdapter(),
+});
 storage.set("user2", { email: "hermoine@hogwarts.com", name: "Hermoine" }, { expires: 5 });
 console.log(storage.get("user2"));
 ```
