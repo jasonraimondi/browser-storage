@@ -10,11 +10,11 @@ An abstracted storage library for **browser** applications that interfaces with 
 ![npm bundle size](https://img.shields.io/bundlephobia/min/%40jmondi%2Fbrowser-storage)
 ![npm gzip bundle size](https://img.shields.io/bundlephobia/minzip/%40jmondi%2Fbrowser-storage)
 
-
 ## Installation
 
+For Node.js:
 ```bash
-pnpm add @jmondi/browser-storage
+pnpx jsr add @jmondi/browser-storage
 ```
 
 For Deno:

@@ -43,6 +43,10 @@ export type AsyncDefineResponse<SetConfig = unknown> = {
   remove(): Promise<void>;
 };
 
+/**
+ * Abstract base class for browser storage implementations.
+ * @template SetConfig - Optional configuration type for the setItem method.
+ */
 export abstract class AbstractBrowserStorage<SetConfig = unknown> {
   abstract adapter: Adapter<SetConfig> | AsyncAdapter<SetConfig>;
   abstract prefix: string;
@@ -72,6 +76,10 @@ export abstract class AbstractBrowserStorage<SetConfig = unknown> {
   }
 }
 
+/**
+ * Synchronous browser storage class.
+ * @template SetConfig - Optional configuration type for the setItem method.
+ */
 export class BrowserStorage<SetConfig = unknown> extends AbstractBrowserStorage<SetConfig> {
   readonly adapter: Adapter<SetConfig>;
   readonly prefix: string;
@@ -125,6 +133,10 @@ export class BrowserStorage<SetConfig = unknown> extends AbstractBrowserStorage<
   }
 }
 
+/**
+ * Asynchronous browser storage class with in memory cached storage.
+ * @template SetConfig - Optional configuration object for the setItem method.
+ */
 export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserStorage<SetConfig> {
   readonly adapter: AsyncAdapter<SetConfig>;
   readonly cachedAdapter: MemoryStorageAdapter = new MemoryStorageAdapter();
@@ -197,6 +209,10 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
   }
 }
 
+/**
+ * Local storage class that extends BrowserStorage.
+ * Uses localStorage if available, otherwise falls back to in-memory storage.
+ */
 export class LocalStorage extends BrowserStorage {
   constructor(config: Omit<StorageConfig, "adapter"> = {}) {
     let adapter: Adapter = new MemoryStorageAdapter();
@@ -212,6 +228,10 @@ export class LocalStorage extends BrowserStorage {
   }
 }
 
+/**
+ * Session storage class that extends BrowserStorage.
+ * Uses sessionStorage if available, otherwise falls back to in-memory storage.
+ */
 export class SessionStorage extends BrowserStorage {
   constructor(config: Omit<StorageConfig, "adapter"> = {}) {
     let adapter: Adapter = new MemoryStorageAdapter();
@@ -227,6 +247,7 @@ export class SessionStorage extends BrowserStorage {
   }
 }
 
+/** In-memory storage adapter implementing the Adapter interface. */
 export class MemoryStorageAdapter implements Adapter {
   private storage = new Map<string, string>();
 
