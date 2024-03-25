@@ -19,7 +19,7 @@ pnpm add @jmondi/browser-storage
 
 For Deno:
 ```ts
-import { LocaleStorage, SessionStorage, BrowserStorage } from "https://deno.land/x/browser_storage"
+deno add @jmondi/browser-storage
 ```
 
 ## Usage
