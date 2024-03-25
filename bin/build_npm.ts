@@ -2,10 +2,12 @@ import { build, emptyDir } from "https://deno.land/x/dnt@0.37.0/mod.ts";
 
 await emptyDir("./npm");
 
+Deno.copyFileSync("npm-deprecated.js", "npm/npm-deprecated.js");
+
 await build({
   test: false,
   packageManager: "pnpm",
-  entryPoints: ["./mod.ts"],
+  entryPoints: ["./mod.ts", "./npm-deprecated.js"],
   outDir: "./npm",
   shims: {
     deno: true,
@@ -17,6 +19,9 @@ await build({
     name: "@jmondi/browser-storage",
     version: Deno.args[0]?.replace("v", ""),
     description: "Utilities for local and session browser storage.",
+    scripts: {
+      "postinstall": "node npm-deprecated.js",
+    },
     keywords: [
       "browser-storage",
       "local-storage",
@@ -46,7 +51,12 @@ await build({
   },
   postBuild() {
     Deno.copyFileSync("LICENSE", "npm/LICENSE");
-    Deno.copyFileSync("README.md", "npm/README.md");
+    Deno.writeFileSync(
+      "./npm/README.md",
+      new TextEncoder().encode(
+        "# @jmondi/browser-storage\n\nThis package is deprecated, please use https://jsr.io/@jmondi/browser-storage instead.\n",
+      ),
+    );
   },
 });
 

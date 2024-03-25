@@ -1,6 +1,6 @@
 {
   "name": "@jmondi/browser-storage",
-  "version": "1.8.1",
+  "version": "1.8.2",
   "exports": "./mod.ts",
   "fmt": {
     "exclude": ["npm/", "README.md"],
