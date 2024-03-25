@@ -11,7 +11,7 @@ await build({
     deno: true,
   },
   compilerOptions: {
-    lib: ["DOM", "ES2021"],
+    lib: ["DOM", "ESNEXT"],
   },
   package: {
     name: "@jmondi/browser-storage",

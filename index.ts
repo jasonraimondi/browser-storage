@@ -84,7 +84,7 @@ export class BrowserStorage<SetConfig = unknown> extends AbstractBrowserStorage<
     this.serializer = config.serializer ?? JSON;
   }
 
-  clear() {
+  clear(): void {
     this.adapter.clear?.();
   }
 
@@ -127,7 +127,7 @@ export class BrowserStorage<SetConfig = unknown> extends AbstractBrowserStorage<
 
 export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserStorage<SetConfig> {
   readonly adapter: AsyncAdapter<SetConfig>;
-  readonly cachedAdapter = new MemoryStorageAdapter();
+  readonly cachedAdapter: MemoryStorageAdapter = new MemoryStorageAdapter();
   readonly prefix: string;
   readonly serializer: Serializer;
 
@@ -138,25 +138,25 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
     this.serializer = config.serializer ?? JSON;
   }
 
-  async syncCache() {
+  async syncCache(): Promise<void> {
     for (let [key, value] of this.cachedAdapter.entries()) {
       await this.adapter.setItem(key, value);
     }
   }
 
-  getCache(key: string) {
+  getCache(key: string): string | null {
     return this.cachedAdapter.getItem(key);
   }
 
-  setCache(key: string, value?: string) {
+  setCache(key: string, value?: string): void {
     if (value) this.cachedAdapter.setItem(key, value);
   }
 
-  removeCache(key: string) {
+  removeCache(key: string): void {
     this.cachedAdapter.removeItem(key);
   }
 
-  async clear() {
+  async clear(): Promise<void> {
     await this.adapter.clear?.();
   }
 
@@ -230,7 +230,7 @@ export class SessionStorage extends BrowserStorage {
 export class MemoryStorageAdapter implements Adapter {
   private storage = new Map<string, string>();
 
-  entries() {
+  entries(): IterableIterator<[string, string]> {
     return this.storage.entries();
   }
 
@@ -250,20 +250,3 @@ export class MemoryStorageAdapter implements Adapter {
     this.storage.set(key, value);
   }
 }
-
-/**
- * @deprecated use MemoryStorageAdapter instead
- */
-export class MemoryStorageProvider extends MemoryStorageAdapter {
-  constructor() {
-    super();
-    console.log(
-      "[@jmondi/browser-storage] MemoryStorageProvider is deprecated, use MemoryStorageAdapter instead",
-    );
-  }
-}
-
-/**
- * @deprecated use Serializer instead
- */
-export type StorageSerializer = Serializer;
