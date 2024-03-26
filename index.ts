@@ -1,42 +1,98 @@
+/**
+ * Serializer interface for parsing and stringifying values.
+ */
 export type Serializer = {
+  /** Parses a string value into a generic type */
   parse<T = unknown>(value: string): T;
+  /** Stringifies a generic value into a string */
   stringify<T = unknown>(value: T): string;
 };
 
+/**
+ * Adapter interface for interacting with a synchronous storage system.
+ * @template SetConfig - Optional configuration type for the setItem method.
+ */
 export type Adapter<SetConfig = unknown> = {
+  /** (optional) Clears all items from the storage */
   clear?(): void;
+  /** Retrieves an item from storage */
   getItem(key: string): string | null;
+  /** Removes an item from storage */
   removeItem(key: string): void;
+  /** Sets an item in storage with optional config */
   setItem(key: string, value: string): void;
   setItem(key: string, value: string, config?: SetConfig): void;
 };
 
+/**
+ * Adapter interface for interacting with an asynchronous storage system.
+ * @template SetConfig - Optional configuration type for the setItem method.
+ */
 export type AsyncAdapter<SetConfig = unknown> = {
+  /** (optional) Clears all items from the storage */
   clear?(): Promise<void>;
+  /** Retrieves an item from storage */
   getItem(key: string): Promise<string | null>;
+  /** Removes an item from storage */
   removeItem(key: string): Promise<void>;
+  /** Sets an item in storage with optional config */
   setItem(key: string, value: string): Promise<void>;
   setItem(key: string, value: string, config?: SetConfig): Promise<void>;
 };
 
+/**
+ * Configuration options for synchronous storage.
+ */
 export type StorageConfig = {
-  prefix?: string;
-  serializer?: Serializer;
+  /**
+   * (optional) Adapter for interacting with storage.
+   * @default MemoryStorageAdapter
+   */
   adapter?: Adapter;
+  /**
+   * (optional) Prefix for all storage keys.
+   * @default ""
+   */
+  prefix?: string;
+  /**
+   * (optional) Serializer for parsing and stringifying values.
+   * @default JSON
+   */
+  serializer?: Serializer;
 };
 
 export type AsyncStorageConfig = {
-  prefix?: string;
-  serializer?: Serializer;
+  /**
+   * AsyncAdapter for interacting with storage.
+   * @default MemoryStorageAdapter
+   */
   adapter: AsyncAdapter;
+  /**
+   * (optional) Prefix for all storage keys.
+   * @default ""
+   */
+  prefix?: string;
+  /**
+   * (optional) Serializer for parsing and stringifying values.
+   * @default JSON
+   */
+  serializer?: Serializer;
 };
 
+/**
+ * Response object for a defined storage key.
+ * @template SetConfig - Optional configuration type for the set method.
+ */
 export type DefineResponse<SetConfig = unknown> = {
   get<T = unknown>(): T | null;
   set(value: unknown, config?: SetConfig): boolean;
   remove(): void;
 };
 
+/**
+ * Response object for a defined asynchronous storage key.
+ * @template SetConfig - Optional configuration type for the set method.
+ */
 export type AsyncDefineResponse<SetConfig = unknown> = {
   get<T = unknown>(): Promise<T | null>;
   set(value: unknown, config?: SetConfig): Promise<boolean>;
