@@ -56,6 +56,13 @@ Deno.test("async browser storage", async (t) => {
     assertEquals(await storage.get("one"), null);
   });
 
+  await t.step("can pop values", async () => {
+    const storage = new AsyncBrowserStorage({ adapter: new TestAsyncAdapter() });
+    await storage.set("one", "hello world");
+    assertEquals(await storage.pop("one"), "hello world");
+    assertEquals(await storage.get("one"), null);
+  });
+
   await t.step("can use cache", async () => {
     const storage = new AsyncBrowserStorage({ adapter: new TestAsyncAdapter() });
     storage.setCache("one", "hello world");
@@ -80,6 +87,13 @@ Deno.test("browser storage spec", async (t) => {
     storage.set("one", "hello world");
     assertEquals(storage.get("one"), "hello world");
     storage.remove("one");
+    assertEquals(storage.get("one"), null);
+  });
+
+  await t.step("can pop values", () => {
+    const storage = new BrowserStorage();
+    storage.set("one", "hello world");
+    assertEquals(storage.pop("one"), "hello world");
     assertEquals(storage.get("one"), null);
   });
 

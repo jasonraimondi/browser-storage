@@ -21,17 +21,25 @@ deno add @jmondi/browser-storage
 
 ## Usage
 
-`LocalStorage` and `SessionStorage` are wrappers for `window.localStorage` and `window.sessionStorage`.
+`LocalStorage` and `SessionStorage` are wrappers for `window.localStorage` and `window.sessionStorage`. You can add your own custom adapters to use `Cookies` or `IndexedDB` etc.
 
 ```typescript
 const storage = new LocalStorage({ prefix: "myapp" });
 const LOCAL_STORAGE = storage.defineGroup({ token: "jti", current_user: "u" });
+// any primitive value
 LOCAL_STORAGE.token.set("newtoken");
 LOCAL_STORAGE.token.get(); // "newtoken"
 LOCAL_STORAGE.token.remove();
+
+// any serializable object
 LOCAL_STORAGE.current_user.set({ email: "jason@example.com" });
 LOCAL_STORAGE.current_user.get(); // { email: "jason@example.com" }
 LOCAL_STORAGE.current_user.remove();
+
+// pop removes and returns the value
+LOCAL_STORAGE.current_user.set({ email: "jason@example.com" });
+LOCAL_STORAGE.current_user.pop(); // { email: "jason@example.com" }
+LOCAL_STORAGE.current_user.get(); // null
 ```
 
 ### The LocalStorage class 
@@ -130,6 +138,8 @@ LOCAL_STORAGE.token.remove();
 LOCAL_STORAGE.current_user.set({ email: "jason@example.com" });
 LOCAL_STORAGE.current_user.get(); // { email: "jason@example.com" }
 LOCAL_STORAGE.current_user.remove();
+LOCAL_STORAGE.current_user.set({ email: "jason@example.com" });
+LOCAL_STORAGE.current_user.pop(); // { email: "jason@example.com" }
 ```
 
 ### Defining Single Storage Key

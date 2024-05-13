@@ -87,6 +87,7 @@ export type DefineResponse<SetConfig = unknown> = {
   get<T = unknown>(): T | null;
   set(value: unknown, config?: SetConfig): boolean;
   remove(): void;
+  pop<T = unknown>(): T | null;
 };
 
 /**
@@ -95,6 +96,8 @@ export type DefineResponse<SetConfig = unknown> = {
  */
 export type AsyncDefineResponse<SetConfig = unknown> = {
   get<T = unknown>(): Promise<T | null>;
+  /** Retrieves the value from storage and removes it. */
+  pop<T = unknown>(): Promise<T | null>;
   set(value: unknown, config?: SetConfig): Promise<boolean>;
   remove(): Promise<void>;
 };
@@ -152,6 +155,12 @@ export class BrowserStorage<SetConfig = unknown> extends AbstractBrowserStorage<
     this.adapter.clear?.();
   }
 
+  pop<T>(key: string): T | null {
+    const item = this.fromStore<T>(this.adapter.getItem(this.prefix + key));
+    this.remove(key);
+    return item;
+  }
+
   get<T>(key: string): T | null {
     return this.fromStore<T>(this.adapter.getItem(this.prefix + key));
   }
@@ -185,6 +194,7 @@ export class BrowserStorage<SetConfig = unknown> extends AbstractBrowserStorage<
       get: <T = DefinedType>(): T | null => this.get<T>(key),
       set: (value: unknown, config?: SetConfig) => this.set(key, value, config ?? defaultConfig),
       remove: () => this.remove(key),
+      pop: <T = DefinedType>(): T | null => this.pop<T>(key),
     };
   }
 }
@@ -232,6 +242,12 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
     return this.fromStore<T>(await this.adapter.getItem(this.prefix + key));
   }
 
+  async pop<T>(key: string): Promise<T | null> {
+    const item = await this.get<T>(key);
+    await this.remove(key);
+    return item;
+  }
+
   async set(key: string, value?: unknown, config?: SetConfig): Promise<boolean> {
     try {
       await this.adapter.setItem(this.prefix + key, this.toStore(value), config);
@@ -261,6 +277,7 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
       get: <T = DefinedType>(): Promise<T | null> => this.get<T>(key),
       set: (value: unknown, config?: SetConfig) => this.set(key, value, config ?? defaultConfig),
       remove: () => this.remove(key),
+      pop: <T = DefinedType>(): Promise<T | null> => this.pop<T>(key),
     };
   }
 }
