@@ -87,7 +87,9 @@ export type DefineResponse<SetConfig = unknown> = {
   get<T = unknown>(): T | null;
   set(value: unknown, config?: SetConfig): boolean;
   remove(): void;
+  /** Retrieves the value from storage and removes it. */
   pop<T = unknown>(): T | null;
+  key: string;
 };
 
 /**
@@ -96,10 +98,11 @@ export type DefineResponse<SetConfig = unknown> = {
  */
 export type AsyncDefineResponse<SetConfig = unknown> = {
   get<T = unknown>(): Promise<T | null>;
-  /** Retrieves the value from storage and removes it. */
-  pop<T = unknown>(): Promise<T | null>;
   set(value: unknown, config?: SetConfig): Promise<boolean>;
   remove(): Promise<void>;
+  /** Retrieves the value from storage and removes it. */
+  pop<T = unknown>(): Promise<T | null>;
+  key: string;
 };
 
 /**
@@ -195,6 +198,7 @@ export class BrowserStorage<SetConfig = unknown> extends AbstractBrowserStorage<
       set: (value: unknown, config?: SetConfig) => this.set(key, value, config ?? defaultConfig),
       remove: () => this.remove(key),
       pop: <T = DefinedType>(): T | null => this.pop<T>(key),
+      key: this.prefix + key,
     };
   }
 }
@@ -278,6 +282,7 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
       set: (value: unknown, config?: SetConfig) => this.set(key, value, config ?? defaultConfig),
       remove: () => this.remove(key),
       pop: <T = DefinedType>(): Promise<T | null> => this.pop<T>(key),
+      key: this.prefix + key,
     };
   }
 }

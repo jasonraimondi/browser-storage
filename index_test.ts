@@ -169,7 +169,7 @@ Deno.test("adapters with custom setItem config", async (t) => {
 
 Deno.test("defining named groups", async (t) => {
   await t.step("#define success", () => {
-    const storage = new BrowserStorage();
+    const storage = new BrowserStorage({ prefix: "foo__" });
 
     const GROUP = {
       token: storage.define<string>("access_token"),
@@ -180,6 +180,7 @@ Deno.test("defining named groups", async (t) => {
     GROUP.user.set({ email: "jason@example.com" });
     storage.set("user_test", { email: "testing@example.com" });
 
+    assertEquals(GROUP.token.key, "foo__access_token");
     assertEquals(GROUP.token.get(), "ABC123");
     assertEquals(storage.get("user_test"), { email: "testing@example.com" });
     assertEquals(storage.get("access_token"), "ABC123");

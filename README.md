@@ -24,14 +24,16 @@ deno add @jmondi/browser-storage
 `LocalStorage` and `SessionStorage` are wrappers for `window.localStorage` and `window.sessionStorage`. You can add your own custom adapters to use `Cookies` or `IndexedDB` etc.
 
 ```typescript
-const storage = new LocalStorage({ prefix: "myapp" });
+const storage = new LocalStorage({ prefix: "myapp__" });
 const LOCAL_STORAGE = storage.defineGroup({ token: "jti", current_user: "u" });
 // any primitive value
+LOCAL_STORAGE.token.key; // "myapp__jti
 LOCAL_STORAGE.token.set("newtoken");
 LOCAL_STORAGE.token.get(); // "newtoken"
 LOCAL_STORAGE.token.remove();
 
 // any serializable object
+LOCAL_STORAGE.current_user.key; // "myapp__u"
 LOCAL_STORAGE.current_user.set({ email: "jason@example.com" });
 LOCAL_STORAGE.current_user.get(); // { email: "jason@example.com" }
 LOCAL_STORAGE.current_user.remove();
@@ -42,6 +44,25 @@ LOCAL_STORAGE.current_user.pop(); // { email: "jason@example.com" }
 LOCAL_STORAGE.current_user.get(); // null
 ```
 
+Use `define` for individual single storage keys, for example:
+
+```typescript
+type UserInfo = { email: string };
+const storage = new LocalStorage();
+const USER_INFO_STORAGE = storage.define<UserInfo>("user_info");
+USER_INFO_STORAGE.set({ email: "jason@example.com" });
+USER_INFO_STORAGE.get(); // gets the latest value
+USER_INFO_STORAGE.remove(); // removes the value
+```
+
+You can also define keys dynamically
+
+```typescript
+const storage = new LocalStorage();
+storage.set("user2", { email: "hermoine@hogwarts.com" });
+console.log(storage.get("user2")); 
+```
+
 ### The LocalStorage class 
 
 Persists after closing browser
@@ -50,9 +71,6 @@ Persists after closing browser
 import { LocalStorage } from "@jmondi/browser-storage";
 
 const storage = new LocalStorage();
-storage.set("user2", { email: "hermoine@hogwarts.com" });
-console.log(storage.get("user2")); 
-// { email: "hermoine@hogwarts.com" }
 ```
 
 ### The SessionStorage class 
@@ -63,11 +81,11 @@ Resets on browser close
 import { SessionStorage } from "@jmondi/browser-storage";
 
 const storage = new SessionStorage();
-storage.set("user2", { email: "hermoine@hogwarts.com", name: "Hermoine" });
-console.log(storage.get("user2")); // { email: "hermoine@hogwarts.com", name: "Hermoine" }
 ```
 
 ### Example Custom storage adapter
+
+An example implementation of a custom adapter using `js-cookie`
 
 ```ts
 import { type Adapter, BrowserStorage } from "@jmondi/browser-storage";
@@ -85,12 +103,14 @@ export class CookieAdapter implements Adapter {
   }
 }
 
-const storage = new BrowserStorage<Cookies.CookieAttributes>({
+const COOKIE_STORAGE = new BrowserStorage<Cookies.CookieAttributes>({
   prefix: "app_",
   adapter: new CookieAdapter(),
 });
-storage.set("user2", { email: "hermoine@hogwarts.com", name: "Hermoine" }, { expires: 5 });
-console.log(storage.get("user2"));
+COOKIE_STORAGE.defineGroup({ cookie_thing: "my-cookie-thing-name" })
+COOKIE_STORAGE.cookie_thing.key; // "app_my-cookie-thing-name"
+COOKIE_STORAGE.cookie_thing.set("value");
+COOKIE_STORAGE.cookie_thing.get(); // "value"
 ```
 
 ## Configuration
@@ -119,38 +139,4 @@ export class SuperJsonSerializer implements StorageSerializer {
     return superjson.stringify(value); 
   }
 }
-```
-
-## Advanced Usage / Organization Techniques
-
-With defined storage groups you can organize related data into named groups, simplifying access and management.
-
-### Defining Storage Groups
-
-Use `defineGroup` for key groups.
-
-```typescript
-const storage = new LocalStorage({ prefix: "myapp" });
-const LOCAL_STORAGE = storage.defineGroup({ token: "jti", current_user: "u" });
-LOCAL_STORAGE.token.set("newtoken");
-LOCAL_STORAGE.token.get(); // "newtoken"
-LOCAL_STORAGE.token.remove();
-LOCAL_STORAGE.current_user.set({ email: "jason@example.com" });
-LOCAL_STORAGE.current_user.get(); // { email: "jason@example.com" }
-LOCAL_STORAGE.current_user.remove();
-LOCAL_STORAGE.current_user.set({ email: "jason@example.com" });
-LOCAL_STORAGE.current_user.pop(); // { email: "jason@example.com" }
-```
-
-### Defining Single Storage Key
-
-Use `define` for individual keys. In this example, 
-
-```typescript
-type UserInfo = { email: string };
-const storage = new LocalStorage();
-const USER_INFO_STORAGE = storage.define<UserInfo>("user_info");
-USER_INFO_STORAGE.set({ email: "jason@example.com" });
-USER_INFO_STORAGE.get(); // gets the latest value
-USER_INFO_STORAGE.remove(); // removes the value
 ```
