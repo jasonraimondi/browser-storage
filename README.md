@@ -5,7 +5,6 @@ An abstracted storage library for **browser** applications that interfaces with 
 [![JSR](https://jsr.io/badges/@jmondi/browser-storage)](https://jsr.io/@jmondi/browser-storage)
 [![JSR Score](https://jsr.io/badges/@jmondi/browser-storage/score)](https://jsr.io/@jmondi/browser-storage)
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/jasonraimondi/browser-storage/test.yml?branch=main&label=Unit%20Tests&style=flat-square)](https://github.com/jasonraimondi/browser-storage)
-[![Test Coverage](https://img.shields.io/codeclimate/coverage/jasonraimondi/browser-storage?style=flat-square)](https://codeclimate.com/github/jasonraimondi/browser-storage/test_coverage)
 
 ## Installation
 
@@ -27,7 +26,7 @@ deno add @jmondi/browser-storage
 const storage = new LocalStorage({ prefix: "myapp__" });
 const LOCAL_STORAGE = storage.defineGroup({ token: "jti", current_user: "u" });
 // any primitive value
-LOCAL_STORAGE.token.key; // "myapp__jti
+LOCAL_STORAGE.token.key; // "myapp__jti"
 LOCAL_STORAGE.token.set("newtoken");
 LOCAL_STORAGE.token.get(); // "newtoken"
 LOCAL_STORAGE.token.remove();
@@ -118,9 +117,9 @@ COOKIE_STORAGE.cookie_thing.get(); // "value"
 Optional settings: `prefix` (key prefix), `serializer` (defaults to `JSON`).
 
 ```ts
-import { BrowserStorage } from "./index.ts";
+import { LocalStorage } from "@jmondi/browser-storage";
 
-const storage = new LocalStorage({ prefix: 'app_', serializer: JSON });
+const storage = new LocalStorage({ prefix: "app_", serializer: JSON });
 ```
 
 ## Custom Serializers
@@ -129,9 +128,9 @@ To create a custom serializer, implement `parse` and `stringify`.
 
 ```ts
 import superjson from "superjson";
-import { StorageSerializer } from "@jmondi/browser-storage";
+import { Serializer } from "@jmondi/browser-storage";
 
-export class SuperJsonSerializer implements StorageSerializer {
+export class SuperJsonSerializer implements Serializer {
   parse<T = unknown>(value: string): T { 
     return superjson.parse(value); 
   }

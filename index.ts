@@ -131,7 +131,8 @@ export abstract class AbstractBrowserStorage<SetConfig = unknown> {
 
     try {
       return this.serializer.parse(item);
-    } catch (e) {
+    } catch {
+      // parse failed; fall through to returning the raw string
     }
 
     return (item as T) ?? null;
@@ -173,6 +174,7 @@ export class BrowserStorage<SetConfig = unknown> extends AbstractBrowserStorage<
       this.adapter.setItem(this.prefix + key, this.toStore(value), config);
       return true;
     } catch {
+      // setItem failed (quota exceeded, serialization error, etc.)
     }
     return false;
   }
@@ -221,7 +223,7 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
   }
 
   async syncCache(): Promise<void> {
-    for (let [key, value] of this.cachedAdapter.entries()) {
+    for (const [key, value] of this.cachedAdapter.entries()) {
       await this.adapter.setItem(key, value);
     }
   }
@@ -257,6 +259,7 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
       await this.adapter.setItem(this.prefix + key, this.toStore(value), config);
       return true;
     } catch {
+      // setItem failed (quota exceeded, serialization error, etc.)
     }
     return false;
   }
@@ -295,7 +298,7 @@ export class LocalStorage extends BrowserStorage {
   constructor(config: Omit<StorageConfig, "adapter"> = {}) {
     let adapter: Adapter = new MemoryStorageAdapter();
     try {
-      adapter = window.localStorage;
+      adapter = globalThis.localStorage;
     } catch {
       console.log(
         "[@jmondi/browser-storage]",
@@ -314,7 +317,7 @@ export class SessionStorage extends BrowserStorage {
   constructor(config: Omit<StorageConfig, "adapter"> = {}) {
     let adapter: Adapter = new MemoryStorageAdapter();
     try {
-      adapter = window.sessionStorage;
+      adapter = globalThis.sessionStorage;
     } catch {
       console.log(
         "[@jmondi/browser-storage]",

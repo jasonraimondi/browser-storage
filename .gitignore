@@ -1,4 +1,5 @@
 .idea/
+.serena/
 *node_modules/
 *dist/
 *npm/

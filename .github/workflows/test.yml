@@ -9,29 +9,25 @@ jobs:
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: denoland/setup-deno@v1
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
         with:
-          deno-version: 1.x
+          deno-version: v2.x
       - run: deno fmt --check
-      - run: deno test --allow-env --coverage=./coverage
-      - run: deno coverage ./coverage --lcov --output=coverage/lcov.info
-      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        name: report coverage to code climate
-        run: |
-          curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
-          chmod +x ./cc-test-reporter
-          ./cc-test-reporter format-coverage -t lcov coverage/lcov.info
-          ./cc-test-reporter upload-coverage
-        env:
-          CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
+      - run: deno lint
+      - run: deno check index.ts mod.ts index_test.ts
+      - run: deno test --allow-env
 
   publish-jsr:
     needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v4
-      - run: npx jsr publish
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno publish

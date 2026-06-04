@@ -1,17 +1,17 @@
 import {
-  AsyncAdapter,
   AsyncBrowserStorage,
   BrowserStorage,
   LocalStorage,
   MemoryStorageAdapter,
-  Serializer,
   SessionStorage,
 } from "./index.ts";
-import { assertEquals } from "https://deno.land/std@0.191.0/testing/asserts.ts";
+import type { AsyncAdapter, Serializer } from "./index.ts";
+import { assertEquals } from "jsr:@std/assert@^1";
 
 Deno.test("locale storage spec", async (t) => {
   await t.step("can set and remove values", () => {
     const storage = new LocalStorage();
+    storage.clear();
     storage.set("one", "hello world");
     storage.set("two", { message: "hello world" });
     assertEquals(storage.get("one"), "hello world");
@@ -24,6 +24,7 @@ Deno.test("locale storage spec", async (t) => {
 Deno.test("session storage spec", async (t) => {
   await t.step("can set and remove values", () => {
     const storage = new SessionStorage();
+    storage.clear();
     storage.set("one", "hello world");
     assertEquals(storage.get("one"), "hello world");
     storage.remove("one");
@@ -35,16 +36,23 @@ Deno.test("async browser storage", async (t) => {
   class TestAsyncAdapter implements AsyncAdapter {
     private storage = new Map<string, string | null>();
 
-    async getItem(key: string, config?: {}) {
-      return this.storage.get(key) ?? null;
+    getItem(key: string): Promise<string | null> {
+      return Promise.resolve(this.storage.get(key) ?? null);
     }
 
-    async setItem(key: string, value: string) {
+    setItem(key: string, value: string): Promise<void> {
       this.storage.set(key, value);
+      return Promise.resolve();
     }
 
-    async removeItem(key: string, config?: {}) {
+    removeItem(key: string): Promise<void> {
       this.storage.delete(key);
+      return Promise.resolve();
+    }
+
+    clear(): Promise<void> {
+      this.storage.clear();
+      return Promise.resolve();
     }
   }
 
@@ -63,7 +71,7 @@ Deno.test("async browser storage", async (t) => {
     assertEquals(await storage.get("one"), null);
   });
 
-  await t.step("can use cache", async () => {
+  await t.step("can use cache", () => {
     const storage = new AsyncBrowserStorage({ adapter: new TestAsyncAdapter() });
     storage.setCache("one", "hello world");
     assertEquals(storage.getCache("one"), "hello world");
@@ -78,6 +86,41 @@ Deno.test("async browser storage", async (t) => {
     assertEquals(await storage.get("one"), null);
     await storage.syncCache();
     assertEquals(await storage.get("one"), "hello world");
+  });
+
+  await t.step("clear removes all values", async () => {
+    const storage = new AsyncBrowserStorage({ adapter: new TestAsyncAdapter() });
+    await storage.set("one", "hello world");
+    await storage.set("two", "goodbye");
+    await storage.clear();
+    assertEquals(await storage.get("one"), null);
+    assertEquals(await storage.get("two"), null);
+  });
+
+  await t.step("#define success", async () => {
+    const storage = new AsyncBrowserStorage({ adapter: new TestAsyncAdapter(), prefix: "foo__" });
+    const TOKEN = storage.define<string>("access_token");
+
+    await TOKEN.set("ABC123");
+    assertEquals(TOKEN.key, "foo__access_token");
+    assertEquals(await TOKEN.get(), "ABC123");
+    assertEquals(await storage.get("access_token"), "ABC123");
+    assertEquals(await TOKEN.pop(), "ABC123");
+    assertEquals(await TOKEN.get(), null);
+  });
+
+  await t.step("#defineGroup success", async () => {
+    const storage = new AsyncBrowserStorage({ adapter: new TestAsyncAdapter() });
+    const GROUP = storage.defineGroup({ token: "refresh_token", user: "user_info" });
+
+    await GROUP.token.set("newtoken");
+    await GROUP.user.set({ email: "jason@example.com" });
+
+    assertEquals(await GROUP.token.get(), "newtoken");
+    assertEquals(await GROUP.user.get(), { email: "jason@example.com" });
+    assertEquals(await storage.get("refresh_token"), "newtoken");
+    await GROUP.token.remove();
+    assertEquals(await GROUP.token.get(), null);
   });
 });
 
@@ -145,13 +188,32 @@ Deno.test("browser storage spec", async (t) => {
     storage.set("1", { message: "hello world" });
     assertEquals(storage.get("1"), null);
   });
+
+  await t.step("clear removes all values", () => {
+    const storage = new BrowserStorage();
+    storage.set("one", "hello world");
+    storage.set("two", "goodbye");
+    storage.clear();
+    assertEquals(storage.get("one"), null);
+    assertEquals(storage.get("two"), null);
+  });
+
+  await t.step("set returns false when the adapter throws", () => {
+    class ThrowingAdapter extends MemoryStorageAdapter {
+      override setItem(): void {
+        throw new Error("quota exceeded");
+      }
+    }
+    const storage = new BrowserStorage({ adapter: new ThrowingAdapter() });
+    assertEquals(storage.set("1", "value"), false);
+  });
 });
 
 Deno.test("adapters with custom setItem config", async (t) => {
   class TestingAdapter extends MemoryStorageAdapter {
     public config: unknown = null;
 
-    setItem(key: string, value: string, config?: {}) {
+    override setItem(key: string, value: string, config?: unknown) {
       super.setItem(key, value);
       this.config = config;
     }
@@ -164,6 +226,18 @@ Deno.test("adapters with custom setItem config", async (t) => {
     testing.set("1", "hello world", { config: "test" });
 
     assertEquals(adapter.config, { config: "test" });
+  });
+
+  await t.step("define threads its default config to set", () => {
+    const adapter = new TestingAdapter();
+    const testing = new BrowserStorage({ adapter });
+    const TOKEN = testing.define("token", { config: "default" });
+
+    TOKEN.set("abc");
+    assertEquals(adapter.config, { config: "default" });
+
+    TOKEN.set("abc", { config: "override" });
+    assertEquals(adapter.config, { config: "override" });
   });
 });
 
