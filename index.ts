@@ -15,6 +15,10 @@ export type Serializer = {
 export type Adapter<SetConfig = unknown> = {
   /** (optional) Clears all items from the storage */
   clear?(): void;
+  /** (optional) Number of stored items. Enables prefix-scoped clear(); native Storage and MemoryStorageAdapter provide it. */
+  length?: number;
+  /** (optional) Name of the key at the given index. Enables prefix-scoped clear(); native Storage and MemoryStorageAdapter provide it. */
+  key?(index: number): string | null;
   /** Retrieves an item from storage */
   getItem(key: string): string | null;
   /** Removes an item from storage */
@@ -31,6 +35,8 @@ export type Adapter<SetConfig = unknown> = {
 export type AsyncAdapter<SetConfig = unknown> = {
   /** (optional) Clears all items from the storage */
   clear?(): Promise<void>;
+  /** (optional) Lists all stored keys. Enables prefix-scoped clear(). */
+  keys?(): Promise<string[]>;
   /** Retrieves an item from storage */
   getItem(key: string): Promise<string | null>;
   /** Removes an item from storage */
@@ -81,27 +87,29 @@ export type AsyncStorageConfig = {
 
 /**
  * Response object for a defined storage key.
+ * @template DefinedType - The value type stored at this key.
  * @template SetConfig - Optional configuration type for the set method.
  */
-export type DefineResponse<SetConfig = unknown> = {
-  get<T = unknown>(): T | null;
-  set(value: unknown, config?: SetConfig): boolean;
+export type DefineResponse<DefinedType = unknown, SetConfig = unknown> = {
+  get<T = DefinedType>(): T | null;
+  set(value: DefinedType, config?: SetConfig): boolean;
   remove(): void;
   /** Retrieves the value from storage and removes it. */
-  pop<T = unknown>(): T | null;
+  pop<T = DefinedType>(): T | null;
   key: string;
 };
 
 /**
  * Response object for a defined asynchronous storage key.
+ * @template DefinedType - The value type stored at this key.
  * @template SetConfig - Optional configuration type for the set method.
  */
-export type AsyncDefineResponse<SetConfig = unknown> = {
-  get<T = unknown>(): Promise<T | null>;
-  set(value: unknown, config?: SetConfig): Promise<boolean>;
+export type AsyncDefineResponse<DefinedType = unknown, SetConfig = unknown> = {
+  get<T = DefinedType>(): Promise<T | null>;
+  set(value: DefinedType, config?: SetConfig): Promise<boolean>;
   remove(): Promise<void>;
   /** Retrieves the value from storage and removes it. */
-  pop<T = unknown>(): Promise<T | null>;
+  pop<T = DefinedType>(): Promise<T | null>;
   key: string;
 };
 
@@ -115,27 +123,18 @@ export abstract class AbstractBrowserStorage<SetConfig = unknown> {
   abstract serializer: Serializer;
 
   protected toStore(value: unknown): string {
-    switch (typeof value) {
-      case "string":
-        return value;
-      case "undefined":
-        return this.serializer.stringify(null);
-      default:
-        return this.serializer.stringify(value);
-    }
+    return this.serializer.stringify(value ?? null);
   }
 
   protected fromStore<T = unknown>(item: unknown): T | null {
-    if (item === "null") return null;
     if (typeof item !== "string") return null;
 
     try {
       return this.serializer.parse(item);
     } catch {
-      // parse failed; fall through to returning the raw string
+      // legacy or foreign value that isn't valid JSON; return it raw
+      return (item as T) ?? null;
     }
-
-    return (item as T) ?? null;
   }
 }
 
@@ -156,7 +155,22 @@ export class BrowserStorage<SetConfig = unknown> extends AbstractBrowserStorage<
   }
 
   clear(): void {
-    this.adapter.clear?.();
+    if (!this.prefix) {
+      this.adapter.clear?.();
+      return;
+    }
+    const { adapter } = this;
+    if (typeof adapter.key !== "function" || typeof adapter.length !== "number") {
+      throw new Error(
+        "clear() with a prefix requires an adapter that implements key(index) and length",
+      );
+    }
+    const keys: string[] = [];
+    for (let i = 0; i < adapter.length; i++) {
+      const key = adapter.key(i);
+      if (key !== null && key.startsWith(this.prefix)) keys.push(key);
+    }
+    for (const key of keys) adapter.removeItem(key);
   }
 
   pop<T>(key: string): T | null {
@@ -183,21 +197,24 @@ export class BrowserStorage<SetConfig = unknown> extends AbstractBrowserStorage<
     this.adapter.removeItem(this.prefix + key);
   }
 
-  defineGroup<GenericRecord extends Record<string, string>>(
-    group: GenericRecord,
-  ): Record<keyof GenericRecord, DefineResponse<SetConfig>> {
-    return Object
-      .keys(group)
-      .reduce((prev, next) => ({
-        ...prev,
-        [next]: this.define<string>(group[next]),
-      }), {} as Record<keyof GenericRecord, DefineResponse<SetConfig>>);
+  defineGroup<TypeMap extends Record<string, unknown> = Record<string, unknown>>(
+    group: { [K in keyof TypeMap]: string },
+  ): { [K in keyof TypeMap]: DefineResponse<TypeMap[K], SetConfig> } {
+    type Result = { [K in keyof TypeMap]: DefineResponse<TypeMap[K], SetConfig> };
+    return (Object.keys(group) as (keyof TypeMap)[]).reduce((prev, next) => ({
+      ...prev,
+      [next]: this.define(group[next]),
+    }), {} as Result);
   }
 
-  define<DefinedType>(key: string, defaultConfig?: SetConfig): DefineResponse<SetConfig> {
+  define<DefinedType = unknown>(
+    key: string,
+    defaultConfig?: SetConfig,
+  ): DefineResponse<DefinedType, SetConfig> {
     return {
       get: <T = DefinedType>(): T | null => this.get<T>(key),
-      set: (value: unknown, config?: SetConfig) => this.set(key, value, config ?? defaultConfig),
+      set: (value: DefinedType, config?: SetConfig) =>
+        this.set(key, value, config ?? defaultConfig),
       remove: () => this.remove(key),
       pop: <T = DefinedType>(): T | null => this.pop<T>(key),
       key: this.prefix + key,
@@ -241,7 +258,20 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
   }
 
   async clear(): Promise<void> {
-    await this.adapter.clear?.();
+    if (!this.prefix) {
+      await this.adapter.clear?.();
+      return;
+    }
+    const { adapter } = this;
+    if (typeof adapter.keys !== "function") {
+      throw new Error(
+        "clear() with a prefix requires an adapter that implements keys()",
+      );
+    }
+    const keys = await adapter.keys();
+    for (const key of keys) {
+      if (key.startsWith(this.prefix)) await adapter.removeItem(key);
+    }
   }
 
   async get<T>(key: string): Promise<T | null> {
@@ -268,21 +298,24 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
     await this.adapter.removeItem(this.prefix + key);
   }
 
-  defineGroup<GenericRecord extends Record<string, string>>(
-    group: GenericRecord,
-  ): Record<keyof GenericRecord, AsyncDefineResponse<SetConfig>> {
-    return Object
-      .keys(group)
-      .reduce((prev, next) => ({
-        ...prev,
-        [next]: this.define<string>(group[next]),
-      }), {} as Record<keyof GenericRecord, AsyncDefineResponse<SetConfig>>);
+  defineGroup<TypeMap extends Record<string, unknown> = Record<string, unknown>>(
+    group: { [K in keyof TypeMap]: string },
+  ): { [K in keyof TypeMap]: AsyncDefineResponse<TypeMap[K], SetConfig> } {
+    type Result = { [K in keyof TypeMap]: AsyncDefineResponse<TypeMap[K], SetConfig> };
+    return (Object.keys(group) as (keyof TypeMap)[]).reduce((prev, next) => ({
+      ...prev,
+      [next]: this.define(group[next]),
+    }), {} as Result);
   }
 
-  define<DefinedType>(key: string, defaultConfig?: SetConfig): AsyncDefineResponse<SetConfig> {
+  define<DefinedType = unknown>(
+    key: string,
+    defaultConfig?: SetConfig,
+  ): AsyncDefineResponse<DefinedType, SetConfig> {
     return {
       get: <T = DefinedType>(): Promise<T | null> => this.get<T>(key),
-      set: (value: unknown, config?: SetConfig) => this.set(key, value, config ?? defaultConfig),
+      set: (value: DefinedType, config?: SetConfig) =>
+        this.set(key, value, config ?? defaultConfig),
       remove: () => this.remove(key),
       pop: <T = DefinedType>(): Promise<T | null> => this.pop<T>(key),
       key: this.prefix + key,
@@ -331,6 +364,14 @@ export class SessionStorage extends BrowserStorage {
 /** In-memory storage adapter implementing the Adapter interface. */
 export class MemoryStorageAdapter implements Adapter {
   private storage = new Map<string, string>();
+
+  get length(): number {
+    return this.storage.size;
+  }
+
+  key(index: number): string | null {
+    return [...this.storage.keys()][index] ?? null;
+  }
 
   entries(): IterableIterator<[string, string]> {
     return this.storage.entries();

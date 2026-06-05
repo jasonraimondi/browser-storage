@@ -5,8 +5,8 @@ import {
   MemoryStorageAdapter,
   SessionStorage,
 } from "./index.ts";
-import type { AsyncAdapter, Serializer } from "./index.ts";
-import { assertEquals } from "jsr:@std/assert@^1";
+import type { Adapter, AsyncAdapter, Serializer } from "./index.ts";
+import { assertEquals, assertThrows } from "jsr:@std/assert@^1";
 
 Deno.test("locale storage spec", async (t) => {
   await t.step("can set and remove values", () => {
@@ -124,6 +124,108 @@ Deno.test("async browser storage", async (t) => {
   });
 });
 
+Deno.test("symmetric serialization", async (t) => {
+  await t.step("strings round-trip without being reinterpreted", () => {
+    const storage = new BrowserStorage();
+
+    storage.set("pin", "1234");
+    storage.set("flag", "true");
+    storage.set("json", '{"a":1}');
+    storage.set("nullish", "null");
+    storage.set("empty", "");
+
+    assertEquals(storage.get("pin"), "1234");
+    assertEquals(storage.get("flag"), "true");
+    assertEquals(storage.get("json"), '{"a":1}');
+    assertEquals(storage.get("nullish"), "null");
+    assertEquals(storage.get("empty"), "");
+  });
+
+  await t.step("non-string values round-trip as themselves", () => {
+    const storage = new BrowserStorage();
+
+    storage.set("num", 1234);
+    storage.set("bool", true);
+    storage.set("obj", { a: 1 });
+    storage.set("zero", 0);
+    storage.set("actualNull", null);
+
+    assertEquals(storage.get("num"), 1234);
+    assertEquals(storage.get("bool"), true);
+    assertEquals(storage.get("obj"), { a: 1 });
+    assertEquals(storage.get("zero"), 0);
+    assertEquals(storage.get("actualNull"), null);
+  });
+});
+
+Deno.test("prefix-scoped clear", async (t) => {
+  await t.step("only removes keys under the prefix", () => {
+    const adapter = new MemoryStorageAdapter();
+    adapter.setItem("other__keep", "keep me");
+    const storage = new BrowserStorage({ prefix: "app__", adapter });
+    storage.set("token", "abc");
+    storage.set("user", "jason");
+
+    storage.clear();
+
+    assertEquals(storage.get("token"), null);
+    assertEquals(storage.get("user"), null);
+    assertEquals(adapter.getItem("other__keep"), "keep me");
+  });
+
+  await t.step("empty prefix still clears everything", () => {
+    const adapter = new MemoryStorageAdapter();
+    adapter.setItem("anything", "x");
+    const storage = new BrowserStorage({ adapter });
+    storage.set("y", "y");
+
+    storage.clear();
+
+    assertEquals(adapter.getItem("anything"), null);
+    assertEquals(storage.get("y"), null);
+  });
+
+  await t.step("throws when a prefix is set but the adapter can't enumerate", () => {
+    const adapter: Adapter = {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    };
+    const storage = new BrowserStorage({ prefix: "p__", adapter });
+
+    assertThrows(() => storage.clear());
+  });
+
+  await t.step("async only removes keys under the prefix", async () => {
+    class EnumerableAsyncAdapter implements AsyncAdapter {
+      storage = new Map<string, string>();
+      getItem(key: string): Promise<string | null> {
+        return Promise.resolve(this.storage.get(key) ?? null);
+      }
+      setItem(key: string, value: string): Promise<void> {
+        this.storage.set(key, value);
+        return Promise.resolve();
+      }
+      removeItem(key: string): Promise<void> {
+        this.storage.delete(key);
+        return Promise.resolve();
+      }
+      keys(): Promise<string[]> {
+        return Promise.resolve([...this.storage.keys()]);
+      }
+    }
+    const adapter = new EnumerableAsyncAdapter();
+    adapter.storage.set("other__keep", "keep me");
+    const storage = new AsyncBrowserStorage({ prefix: "app__", adapter });
+    await storage.set("token", "abc");
+
+    await storage.clear();
+
+    assertEquals(await storage.get("token"), null);
+    assertEquals(adapter.storage.get("other__keep"), "keep me");
+  });
+});
+
 Deno.test("browser storage spec", async (t) => {
   await t.step("can set and remove values", () => {
     const storage = new BrowserStorage();
@@ -171,7 +273,7 @@ Deno.test("browser storage spec", async (t) => {
 
     assertEquals(stubStorage.getItem("1"), "the wrong value");
     assertEquals(storage.get("1"), "the correct value");
-    assertEquals(stubStorage.getItem("@testing:1"), "the correct value");
+    assertEquals(stubStorage.getItem("@testing:1"), '"the correct value"');
   });
 
   await t.step("catches error", () => {
@@ -239,6 +341,31 @@ Deno.test("adapters with custom setItem config", async (t) => {
     TOKEN.set("abc", { config: "override" });
     assertEquals(adapter.config, { config: "override" });
   });
+});
+
+Deno.test("typed define and defineGroup (compile-time checks)", () => {
+  // The value of this test is in `deno check`; the bodies that must NOT type-check
+  // are wrapped in never-invoked arrows so the @ts-expect-error fires without mutating.
+  const storage = new BrowserStorage();
+
+  const TOKEN = storage.define<string>("access_token");
+  const _tokenValue: string | null = TOKEN.get();
+  // @ts-expect-error a string slot rejects numbers
+  const _setToken = () => TOKEN.set(123);
+
+  const GROUP = storage.defineGroup<{ token: string; user: { email: string } }>({
+    token: "refresh_token",
+    user: "user_info",
+  });
+  const _userValue: { email: string } | null = GROUP.user.get();
+  // @ts-expect-error the user slot holds an object, not a string
+  const _setUser = () => GROUP.user.set("nope");
+
+  const inferred = storage.defineGroup({ token: "refresh_token", user: "user_info" });
+  const _token: unknown = inferred.token.get();
+  const _user: unknown = inferred.user.get();
+  // @ts-expect-error aliases are inferred, so unknown members are rejected
+  const _missing = () => inferred.missing;
 });
 
 Deno.test("defining named groups", async (t) => {

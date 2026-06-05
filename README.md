@@ -112,6 +112,8 @@ COOKIE_STORAGE.cookie_thing.set("value");
 COOKIE_STORAGE.cookie_thing.get(); // "value"
 ```
 
+To support a prefix-scoped `clear()`, a custom adapter must expose key enumeration — `key(index)` and `length` for a sync `Adapter`, or `keys()` for an `AsyncAdapter`. Without it, calling `clear()` while a `prefix` is set throws.
+
 ## Configuration
 
 Optional settings: `prefix` (key prefix), `serializer` (defaults to `JSON`).
@@ -139,3 +141,11 @@ export class SuperJsonSerializer implements Serializer {
   }
 }
 ```
+
+## Migrating to v2
+
+**Serialization is now symmetric.** Values are always serialized on write and deserialized on read, so strings round-trip as strings: `set("pin", "1234").get()` returns `"1234"` (v1 returned the number `1234`). This changes the stored format — strings are now serialized rather than written verbatim. Data written by v1 may read back with a different type (a v1 string `"1234"` parses as the number `1234`), so clear or migrate existing keys when upgrading.
+
+**`clear()` is now prefix-scoped.** When a `prefix` is set, `clear()` removes only keys under that prefix instead of wiping the whole origin. This requires the adapter to support key enumeration — native `localStorage`/`sessionStorage` and `MemoryStorageAdapter` already do. A custom adapter must implement `key(index)` and `length` (sync) or `keys()` (async) to support a prefixed `clear()`; otherwise it throws. With no prefix, `clear()` still clears the entire store.
+
+**Keys are typed.** `define<T>("key").get()` now returns `T | null` (v1 returned `unknown | null`), and `defineGroup` accepts an optional type map for per-key types: `defineGroup<{ token: string; user: User }>({ token: "jti", user: "u" })`. `DefineResponse`/`AsyncDefineResponse` now take the value type as their first type parameter.
