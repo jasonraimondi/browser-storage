@@ -106,10 +106,10 @@ const COOKIE_STORAGE = new BrowserStorage<Cookies.CookieAttributes>({
   prefix: "app_",
   adapter: new CookieAdapter(),
 });
-COOKIE_STORAGE.defineGroup({ cookie_thing: "my-cookie-thing-name" })
-COOKIE_STORAGE.cookie_thing.key; // "app_my-cookie-thing-name"
-COOKIE_STORAGE.cookie_thing.set("value");
-COOKIE_STORAGE.cookie_thing.get(); // "value"
+const COOKIES = COOKIE_STORAGE.defineGroup({ cookie_thing: "my-cookie-thing-name" });
+COOKIES.cookie_thing.key; // "app_my-cookie-thing-name"
+COOKIES.cookie_thing.set("value");
+COOKIES.cookie_thing.get(); // "value"
 ```
 
 To support a prefix-scoped `clear()`, a custom adapter must expose key enumeration — `key(index)` and `length` for a sync `Adapter`, or `keys()` for an `AsyncAdapter`. Without it, calling `clear()` while a `prefix` is set throws.
