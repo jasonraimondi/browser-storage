@@ -6,7 +6,7 @@ import {
   SessionStorage,
 } from "./index.ts";
 import type { Adapter, AsyncAdapter, Serializer } from "./index.ts";
-import { assertEquals, assertThrows } from "jsr:@std/assert@^1";
+import { assertEquals, assertThrows } from "@std/assert";
 
 Deno.test("locale storage spec", async (t) => {
   await t.step("can set and remove values", () => {
