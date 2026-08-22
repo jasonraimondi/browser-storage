@@ -5,6 +5,12 @@
   "imports": {
     "@std/assert": "jsr:@std/assert@^1"
   },
+  "tasks": {
+    "test": "deno test --allow-env",
+    "lint": "deno lint",
+    "check": "deno check mod.ts index_test.ts",
+    "ci": "deno fmt --check && deno lint && deno check mod.ts index_test.ts && deno test --allow-env"
+  },
   "publish": {
     "exclude": [".github", ".idea", ".serena", "deno.lock", "index_test.ts"]
   },
