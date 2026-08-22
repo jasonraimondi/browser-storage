@@ -19,6 +19,10 @@ Deno.test("locale storage spec", async (t) => {
     storage.remove("one");
     assertEquals(storage.get("one"), null);
   });
+
+  await t.step("uses the native localStorage when it is writable", () => {
+    assertEquals(new LocalStorage().adapter === globalThis.localStorage, true);
+  });
 });
 
 Deno.test("session storage spec", async (t) => {
@@ -29,6 +33,10 @@ Deno.test("session storage spec", async (t) => {
     assertEquals(storage.get("one"), "hello world");
     storage.remove("one");
     assertEquals(storage.get("one"), null);
+  });
+
+  await t.step("uses the native sessionStorage when it is writable", () => {
+    assertEquals(new SessionStorage().adapter === globalThis.sessionStorage, true);
   });
 });
 
