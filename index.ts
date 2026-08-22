@@ -323,22 +323,34 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
   }
 }
 
+const PROBE_KEY = "__browser_storage_probe__";
+
+/**
+ * Storage can exist but reject writes (sandboxed iframes, blocked cookies,
+ * older Safari private mode), so a write probe is the only reliable check.
+ */
+function resolveAdapter(name: "localStorage" | "sessionStorage"): Adapter {
+  try {
+    const storage = globalThis[name];
+    storage.setItem(PROBE_KEY, PROBE_KEY);
+    storage.removeItem(PROBE_KEY);
+    return storage;
+  } catch {
+    console.log(
+      "[@jmondi/browser-storage]",
+      `${name} is unavailable, falling back to an in memory storage`,
+    );
+    return new MemoryStorageAdapter();
+  }
+}
+
 /**
  * Local storage class that extends BrowserStorage.
  * Uses localStorage if available, otherwise falls back to in-memory storage.
  */
 export class LocalStorage extends BrowserStorage {
   constructor(config: Omit<StorageConfig, "adapter"> = {}) {
-    let adapter: Adapter = new MemoryStorageAdapter();
-    try {
-      adapter = globalThis.localStorage;
-    } catch {
-      console.log(
-        "[@jmondi/browser-storage]",
-        "localStorage is unavailable, falling back to an in memory storage",
-      );
-    }
-    super({ ...config, adapter });
+    super({ ...config, adapter: resolveAdapter("localStorage") });
   }
 }
 
@@ -348,16 +360,7 @@ export class LocalStorage extends BrowserStorage {
  */
 export class SessionStorage extends BrowserStorage {
   constructor(config: Omit<StorageConfig, "adapter"> = {}) {
-    let adapter: Adapter = new MemoryStorageAdapter();
-    try {
-      adapter = globalThis.sessionStorage;
-    } catch {
-      console.log(
-        "[@jmondi/browser-storage]",
-        "sessionStorage is unavailable, falling back to in memory storage",
-      );
-    }
-    super({ ...config, adapter });
+    super({ ...config, adapter: resolveAdapter("sessionStorage") });
   }
 }
 
