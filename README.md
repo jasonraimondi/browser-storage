@@ -1,6 +1,6 @@
 # @jmondi/browser-storage
 
-Typed, prefixed, serialized access to `localStorage`, `sessionStorage`, memory, or any storage you can adapt. Zero dependencies.
+Typed, prefixed, and serialized access to `localStorage`, `sessionStorage`, memory, or a custom adapter. No dependencies.
 
 [![JSR](https://jsr.io/badges/@jmondi/browser-storage)](https://jsr.io/@jmondi/browser-storage)
 [![JSR Score](https://jsr.io/badges/@jmondi/browser-storage/score)](https://jsr.io/@jmondi/browser-storage)
@@ -28,7 +28,7 @@ KEYS.user.get(); // { email: "jason@example.com" }
 
 ## Get started
 
-In this tutorial you will store a typed object in `localStorage`, read it back, and remove it. You need a browser project, or Deno, with TypeScript.
+In this tutorial you store a typed object in `localStorage`, read it, and remove it. You need a TypeScript project that runs in a browser or in Deno.
 
 1. Install the package.
 
@@ -37,7 +37,7 @@ In this tutorial you will store a typed object in `localStorage`, read it back, 
    deno add jsr:@jmondi/browser-storage  # Deno
    ```
 
-2. Create a storage with a prefix. The prefix keeps your keys apart from other code that shares the same origin.
+2. Create a storage with a prefix. The prefix separates your keys from the keys of other code on the same origin.
 
    ```ts
    import { LocalStorage } from "@jmondi/browser-storage";
@@ -54,9 +54,9 @@ In this tutorial you will store a typed object in `localStorage`, read it back, 
    USER.set({ email: "jason@example.com" }); // true
    ```
 
-   Open DevTools → Application → Local Storage. You will see the key `app__user` with the value `{"email":"jason@example.com"}`.
+   Open DevTools → Application → Local Storage. The key `app__user` has the value `{"email":"jason@example.com"}`.
 
-4. Read it back. The value is parsed and typed.
+4. Read the value. The library parses it and applies the type.
 
    ```ts
    const user = USER.get(); // User | null
@@ -70,15 +70,15 @@ In this tutorial you will store a typed object in `localStorage`, read it back, 
    USER.get(); // null
    ```
 
-You now have a typed key that survives page reloads. To group many keys, continue with [Define a group of keys](#define-a-group-of-keys).
+You now have a typed key that stays after a page reload. To group many keys, continue with [Define a group of keys](#define-a-group-of-keys).
 
 ## How-to guides
 
-Each guide solves one task. They assume you have read [Get started](#get-started).
+Each guide solves one task. Read [Get started](#get-started) first.
 
 ### Define a group of keys
 
-Pass a map of names to storage keys. Add a type map to give each key its own type.
+Pass a map from names to storage keys. Add a type map to set the type of each key.
 
 ```ts
 const KEYS = storage.defineGroup<{ token: string; user: User }>({
@@ -104,7 +104,7 @@ storage.remove("draft");
 
 ### Keep data for the session only
 
-Use `SessionStorage`. It has the same API as `LocalStorage`, but the browser clears it when the tab closes.
+Use `SessionStorage`. It has the same API as `LocalStorage`. The browser clears it when the tab closes.
 
 ```ts
 import { SessionStorage } from "@jmondi/browser-storage";
@@ -114,7 +114,7 @@ const session = new SessionStorage({ prefix: "app__" });
 
 ### Adopt a prefix on an app that already has keys in storage
 
-When you add a `prefix`, keys that were written without it become invisible: `get("token")` now reads `app__token`. Pass `migrate` with the legacy key names. When the storage is constructed, each legacy key is copied to its prefixed key and then removed.
+When you add a `prefix`, keys written without it become invisible: `get("token")` now reads `app__token`. Pass `migrate` with the legacy key names. The constructor copies each legacy key to its prefixed key and then removes the legacy key.
 
 ```ts
 const storage = new LocalStorage({
@@ -125,7 +125,7 @@ const storage = new LocalStorage({
 storage.get("token"); // value that was stored under "token"
 ```
 
-To rename a key at the same time, or to keep the legacy key, use the object form.
+Use the object form to rename a key or to keep the legacy key.
 
 ```ts
 migrate: [
@@ -134,11 +134,11 @@ migrate: [
 ]
 ```
 
-A prefixed key that already has a value keeps it. If the write fails, for example on a full quota, the legacy key stays and the storage works as if it had no migration for that key.
+A prefixed key that already has a value keeps that value. If the write fails, for example when the quota is full, the legacy key stays in storage and the migration skips that key.
 
 ### Keep legacy string values as strings
 
-The default serializer is `JSON`. A legacy raw value such as `"12345"` or `"true"` is valid JSON, so `get()` returns the number `12345` or the boolean `true`. To keep such keys as strings, put them on a storage that uses `RawStringSerializer`.
+The default serializer is `JSON`. A legacy raw value such as `"12345"` or `"true"` is valid JSON, so `get()` returns the number `12345` or the boolean `true`. To keep these values as strings, put the keys on a storage that uses `RawStringSerializer`.
 
 ```ts
 import { LocalStorage, RawStringSerializer } from "@jmondi/browser-storage";
@@ -153,11 +153,11 @@ ids.get("orgId"); // "12345"
 ids.set("orgId", 42); // false: only strings are accepted
 ```
 
-Values that are not valid JSON, such as a JWT, read back as strings with the default serializer too. See [Parse failures return the raw string](#parse-failures-return-the-raw-string).
+A value that is not valid JSON, such as a JWT, reads as a string with the default serializer also. See [Parse failures return the raw string](#parse-failures-return-the-raw-string).
 
 ### Migrate keys on an adapter directly
 
-Use the standalone functions when you manage the adapter yourself. Here `to` is the full key, prefix included.
+Use the standalone functions when you manage the adapter yourself. In these functions, `to` is the full key with the prefix.
 
 ```ts
 import { migrateLegacyKeys, migrateLegacyKeysAsync } from "@jmondi/browser-storage";
@@ -166,11 +166,11 @@ migrateLegacyKeys(localStorage, [{ from: "token", to: "app__token" }]);
 await migrateLegacyKeysAsync(myAsyncAdapter, [{ from: "token", to: "app__token" }]);
 ```
 
-Both functions are idempotent. Calling them again does nothing.
+Both functions are idempotent. A second call makes no change.
 
 ### Write a custom adapter
 
-Implement `getItem`, `setItem`, and `removeItem`. The third `setItem` argument is an optional per-write config that you choose; pass its type to `BrowserStorage`.
+Implement `getItem`, `setItem`, and `removeItem`. The third `setItem` argument is an optional config for one write. You define its type and pass it to `BrowserStorage`.
 
 ```ts
 import { type Adapter, BrowserStorage } from "@jmondi/browser-storage";
@@ -196,7 +196,7 @@ const cookies = new BrowserStorage<Cookies.CookieAttributes>({
 cookies.set("consent", "yes", { expires: 365 });
 ```
 
-To support `clear()` with a prefix, also implement `key(index)` and `length`. See [`clear()` with a prefix needs key enumeration](#clear-with-a-prefix-needs-key-enumeration).
+To support `clear()` with a prefix, implement `key(index)` and `length` also. See [`clear()` with a prefix needs key enumeration](#clear-with-a-prefix-needs-key-enumeration).
 
 ### Use an asynchronous adapter
 
@@ -217,11 +217,11 @@ await storage.set("user", { email: "jason@example.com" });
 await storage.get<User>("user");
 ```
 
-With `migrate`, the migration runs once before the first call that touches the adapter. To run it up front, call `await storage.ready()`.
+With `migrate`, the migration runs one time before the first call that uses the adapter. To run it early, call `await storage.ready()`.
 
 ### Use a custom serializer
 
-Implement `parse` and `stringify`. This example uses `superjson` to keep `Date` and `Map` values.
+Implement `parse` and `stringify`. This example uses `superjson` to store `Date` and `Map` values.
 
 ```ts
 import superjson from "superjson";
@@ -245,21 +245,21 @@ const storage = new LocalStorage({ serializer: new SuperJsonSerializer() });
 
 | Class | Adapter | Use |
 |---|---|---|
-| `LocalStorage` | `globalThis.localStorage` | Data that survives a browser restart. |
-| `SessionStorage` | `globalThis.sessionStorage` | Data that lives until the tab closes. |
+| `LocalStorage` | `globalThis.localStorage` | Data that stays after a browser restart. |
+| `SessionStorage` | `globalThis.sessionStorage` | Data that stays until the tab closes. |
 | `BrowserStorage<SetConfig>` | Any `Adapter` | Custom synchronous storage. |
 | `AsyncBrowserStorage<SetConfig>` | Any `AsyncAdapter` | Custom asynchronous storage. |
 
-`LocalStorage` and `SessionStorage` fall back to `MemoryStorageAdapter` when the browser storage is unavailable or blocked, and log one message to the console.
+If the browser storage is not available or is blocked, `LocalStorage` and `SessionStorage` use `MemoryStorageAdapter` and write one message to the console.
 
 ### Constructor options
 
-`LocalStorage` and `SessionStorage` accept `StorageConfig` without `adapter`. `BrowserStorage` accepts `StorageConfig`. `AsyncBrowserStorage` accepts `AsyncStorageConfig`, where `adapter` is required.
+`LocalStorage` and `SessionStorage` accept `StorageConfig` without `adapter`. `BrowserStorage` accepts `StorageConfig`. `AsyncBrowserStorage` accepts `AsyncStorageConfig`. There, `adapter` is required.
 
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `adapter` | `Adapter` / `AsyncAdapter` | `new MemoryStorageAdapter()` | Storage backend. |
-| `prefix` | `string` | `""` | Prepended to every key. |
+| `prefix` | `string` | `""` | Text added to the start of every key. |
 | `serializer` | `Serializer` | `JSON` | Converts values to and from strings. |
 | `migrate` | `(string \| LegacyKeyMigration)[]` | `[]` | Legacy keys to copy onto prefixed keys. A string `k` means `{ from: k, to: k }`. |
 
@@ -267,21 +267,21 @@ const storage = new LocalStorage({ serializer: new SuperJsonSerializer() });
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `from` | `string` | — | Legacy key, exactly as stored. |
-| `to` | `string` | — | New key. Bare in `migrate` (the prefix is added); full in `migrateLegacyKeys()`. |
+| `from` | `string` | — | Legacy key, as stored. |
+| `to` | `string` | — | New key. In `migrate` it has no prefix; the library adds it. In `migrateLegacyKeys()` it is the full key. |
 | `cleanup` | `boolean` | `true` | Remove `from` after a successful copy. |
 
 ### Storage methods
 
-Async variants return a `Promise` of the same value. `key` arguments are bare; the prefix is added for you.
+Async variants return a `Promise` of the same value. `key` arguments have no prefix; the library adds it.
 
 | Method | Returns | Description |
 |---|---|---|
-| `get<T>(key)` | `T \| null` | Parsed value, or `null` when absent. |
-| `set(key, value, config?)` | `boolean` | `true` on success; `false` when the adapter or serializer throws. `undefined` is stored as `null`. |
+| `get<T>(key)` | `T \| null` | Parsed value, or `null` if the key is not present. |
+| `set(key, value, config?)` | `boolean` | `true` on success; `false` if the adapter or the serializer throws. Stores `undefined` as `null`. |
 | `remove(key)` | `void` | Removes the key. |
 | `pop<T>(key)` | `T \| null` | `get` then `remove`. |
-| `clear()` | `void` | With a prefix, removes only keys under it. Without, clears the whole store. |
+| `clear()` | `void` | With a prefix, removes only the keys that start with it. Without a prefix, clears the full store. |
 | `define<T>(key, defaultConfig?)` | `DefineResponse<T>` | Bound `get`/`set`/`remove`/`pop` plus the full `key`. |
 | `defineGroup<TypeMap>(map)` | `{ [name]: DefineResponse }` | `define` for every entry of `map`. |
 
@@ -289,8 +289,8 @@ Async variants return a `Promise` of the same value. `key` arguments are bare; t
 
 | Method | Description |
 |---|---|
-| `ready()` | Resolves when the legacy-key migration has run. Called internally before every adapter access. |
-| `getCache(key)`, `setCache(key, value)`, `removeCache(key)` | Read and write an in-memory buffer keyed by the full key. |
+| `ready()` | Resolves when the legacy-key migration is complete. Each adapter access calls it first. |
+| `getCache(key)`, `setCache(key, value)`, `removeCache(key)` | Read and write an in-memory buffer. Use the full key. |
 | `syncCache()` | Writes every buffered entry to the adapter. |
 
 ### Adapter interfaces
@@ -300,28 +300,28 @@ Async variants return a `Promise` of the same value. `key` arguments are bare; t
 | Member | Required | Description |
 |---|---|---|
 | `getItem(key): string \| null` | yes | |
-| `setItem(key, value, config?): void` | yes | `config` is the per-write `SetConfig`. |
+| `setItem(key, value, config?): void` | yes | `config` is the `SetConfig` for one write. |
 | `removeItem(key): void` | yes | |
-| `clear(): void` | no | Used by `clear()` when there is no prefix. |
-| `length: number`, `key(index): string \| null` | no | Enable `clear()` with a prefix. |
+| `clear(): void` | no | `clear()` uses it when there is no prefix. |
+| `length: number`, `key(index): string \| null` | no | Make `clear()` with a prefix possible. |
 
-`AsyncAdapter<SetConfig>` is the same with `Promise` return types, and `keys(): Promise<string[]>` in place of `length`/`key`.
+`AsyncAdapter<SetConfig>` is the same, but each member returns a `Promise`, and `keys(): Promise<string[]>` replaces `length` and `key`.
 
-Native `Storage` objects and `MemoryStorageAdapter` satisfy `Adapter` in full.
+Native `Storage` objects and `MemoryStorageAdapter` implement all members of `Adapter`.
 
 ### Serializers
 
 | Export | `stringify` | `parse` |
 |---|---|---|
-| `JSON` (default) | `JSON.stringify` | `JSON.parse`; a parse error returns the raw string. |
-| `RawStringSerializer` | Returns the string as is. Throws `TypeError` for non-strings, so `set()` returns `false`. | Returns the string as is. |
+| `JSON` (default) | `JSON.stringify` | `JSON.parse`. On a parse error, returns the raw string. |
+| `RawStringSerializer` | Returns the string unchanged. Throws `TypeError` for a non-string, so `set()` returns `false`. | Returns the string unchanged. |
 
 ### Functions
 
 | Function | Description |
 |---|---|
 | `migrateLegacyKeys(adapter, migrations)` | Runs the migration on a sync adapter. `to` is the full key. Idempotent. |
-| `migrateLegacyKeysAsync(adapter, migrations)` | Same for an async adapter. |
+| `migrateLegacyKeysAsync(adapter, migrations)` | The same, for an async adapter. |
 
 ### Exported types
 
@@ -331,39 +331,39 @@ Native `Storage` objects and `MemoryStorageAdapter` satisfy `Adapter` in full.
 
 ### Why values are always serialized
 
-Every `set()` runs the value through the serializer, and every `get()` runs it back. This makes strings round-trip as strings: `set("pin", "1234")` then `get("pin")` returns `"1234"`, not `1234`. The cost is that the stored form of a string is `"\"1234\""`, which other code reading `localStorage` directly will see with quotes. The gain is that the type you put in is the type you get out.
+Each `set()` passes the value through the serializer. Each `get()` passes it back. So a string stays a string: `set("pin", "1234")` then `get("pin")` returns `"1234"`, not `1234`. The cost: the stored form of a string is `"\"1234\""`, and other code that reads `localStorage` directly sees the quotes. The benefit: the type you write is the type you read.
 
 ### Parse failures return the raw string
 
-Storage is shared with other code on the same origin, and with older versions of your own app. If `get()` finds a value the serializer cannot parse, it returns the string unchanged instead of throwing. This is why a JWT written by legacy code reads correctly with no migration work. The same rule has one side effect: a legacy value that happens to be valid JSON, such as `"true"`, parses successfully and changes type. `RawStringSerializer` exists for that case.
+Other code on the same origin, and older versions of your app, share the storage. If `get()` finds a value that the serializer cannot parse, it returns the string unchanged. It does not throw. This is why a JWT written by legacy code reads correctly with no migration. The rule has one side effect: a legacy value that is valid JSON, such as `"true"`, parses and changes type. `RawStringSerializer` is for that case.
 
 ### Why migration is eager
 
-The `migrate` option could have been a read-time fallback: look for the legacy key only when the prefixed key is empty. That design was tried and rejected for two reasons. First, `clear()` with a prefix enumerates the store by prefix and cannot see unprefixed legacy keys, so a token cleared at logout before its first read would come back on the next read. Second, it turns `get()` into an operation that writes, which can throw on quota. Running the migration once at construction keeps `get()` a pure read, and leaves the store in one consistent state that `clear()` can reason about. The extra cost is one `getItem` per migrated key at startup.
+The `migrate` option could work at read time: look for the legacy key only when the prefixed key is empty. We tried that design and rejected it for two reasons. First, `clear()` with a prefix lists the store by prefix and cannot see legacy keys without the prefix. A token cleared at logout before its first read would come back on the next read. Second, a read-time design makes `get()` write, and a write can throw when the quota is full. A migration that runs one time in the constructor keeps `get()` a pure read. It also leaves the store in one known state that `clear()` can handle. The extra cost is one `getItem` call per migrated key at startup.
 
-`AsyncBrowserStorage` cannot do work in its constructor, so it runs the migration before the first method that touches the adapter and memoizes the promise. `ready()` exposes that promise.
+`AsyncBrowserStorage` cannot await in its constructor. It runs the migration before the first method that uses the adapter, and it keeps the promise. `ready()` returns that promise.
 
 ### `clear()` with a prefix needs key enumeration
 
-`localStorage.clear()` wipes the whole origin, including keys from other code. With a prefix, this library only removes its own keys, which means it must list them first. Native `Storage` has `length` and `key(index)`. A custom sync adapter must provide the same, and a custom async adapter must provide `keys()`. Without them, `clear()` with a prefix throws rather than silently deleting too much or too little.
+`localStorage.clear()` removes all keys on the origin, including keys from other code. With a prefix, this library removes only its own keys. To do that, it must list the keys first. Native `Storage` has `length` and `key(index)`. A custom sync adapter must have the same. A custom async adapter must have `keys()`. Without them, `clear()` with a prefix throws. It does not delete too much or too little without a warning.
 
 ### Why `set()` returns a boolean
 
-Browser storage can refuse a write at any time: quota exceeded, private mode, or a serializer that cannot encode the value. These are routine, so `set()` reports them as `false` instead of throwing. Read and remove errors are rare and usually indicate a broken adapter, so `get()`, `remove()`, and `pop()` let them propagate.
+Browser storage can reject a write at any time: the quota is full, the browser is in private mode, or the serializer cannot encode the value. These are normal conditions, so `set()` returns `false` and does not throw. Read and remove errors are rare and usually show a broken adapter, so `get()`, `remove()`, and `pop()` let them propagate.
 
 ### `pop()` is not atomic
 
-`pop()` is a `get` followed by a `remove`. A write from another tab between the two steps is lost. Browser storage has no transaction, so this cannot be fixed in the library.
+`pop()` is a `get` and then a `remove`. A write from another tab between the two steps is lost. Browser storage has no transactions, so the library cannot prevent this.
 
 ### The async cache is a write buffer
 
-`AsyncBrowserStorage` keeps an in-memory `MemoryStorageAdapter`. It is not a read-through cache: `get()` always asks the adapter. The cache methods let you collect writes and flush them with one `syncCache()` call.
+`AsyncBrowserStorage` keeps an in-memory `MemoryStorageAdapter`. It is not a read-through cache: `get()` always reads from the adapter. Use the cache methods to collect writes, then write them all with one `syncCache()` call.
 
 ## Upgrading to v2
 
-**Serialization is symmetric.** Values are serialized on write and parsed on read, so strings round-trip as strings. v1 wrote strings verbatim, so a v1 string `"1234"` now parses as the number `1234`. Use `RawStringSerializer` for keys that must stay strings, or clear them.
+**Serialization is symmetric.** The library serializes values on write and parses them on read, so a string stays a string. v1 wrote strings unchanged, so a v1 string `"1234"` now parses as the number `1234`. Use `RawStringSerializer` for keys that must stay strings, or clear them.
 
-**`clear()` is prefix-scoped.** With a `prefix`, `clear()` removes only keys under that prefix. A custom adapter must implement `key(index)` and `length` (sync) or `keys()` (async), otherwise `clear()` throws.
+**`clear()` applies to the prefix.** With a `prefix`, `clear()` removes only the keys that start with it. A custom adapter must implement `key(index)` and `length` (sync) or `keys()` (async). If not, `clear()` throws.
 
 **Keys are typed.** `define<T>("key").get()` returns `T | null`. `defineGroup` accepts a type map. `DefineResponse` and `AsyncDefineResponse` take the value type as their first type parameter.
 
