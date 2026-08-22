@@ -45,6 +45,26 @@ export type AsyncAdapter<SetConfig = unknown> = {
 };
 
 /**
+ * Describes one legacy key to copy onto a new key the first time the new key is read.
+ */
+export type LegacyKeyMigration = {
+  /** Legacy key, exactly as it exists in storage today. */
+  from: string;
+  /** New key. In `StorageConfig.migrate` this is a bare key (the prefix is applied for you); in `migrateLegacyKeys()` it is the fully-resolved key. */
+  to: string;
+  /**
+   * Remove the legacy key once migrated.
+   * @default true
+   */
+  cleanup?: boolean;
+};
+
+/**
+ * Legacy keys to migrate lazily. A bare string `k` is shorthand for `{ from: k, to: k }`.
+ */
+export type MigrateConfig = (string | LegacyKeyMigration)[];
+
+/**
  * Configuration options for synchronous storage.
  */
 export type StorageConfig = {
@@ -53,6 +73,11 @@ export type StorageConfig = {
    * @default MemoryStorageAdapter
    */
   adapter?: Adapter;
+  /**
+   * (optional) Legacy keys to migrate onto the prefixed key on first read.
+   * @default []
+   */
+  migrate?: MigrateConfig;
   /**
    * (optional) Prefix for all storage keys.
    * @default ""
@@ -71,6 +96,11 @@ export type AsyncStorageConfig = {
    * @default MemoryStorageAdapter
    */
   adapter: AsyncAdapter;
+  /**
+   * (optional) Legacy keys to migrate onto the prefixed key on first read.
+   * @default []
+   */
+  migrate?: MigrateConfig;
   /**
    * (optional) Prefix for all storage keys.
    * @default ""
@@ -147,9 +177,12 @@ export class BrowserStorage<SetConfig = unknown> extends AbstractBrowserStorage<
 
   constructor(config: StorageConfig = {}) {
     super();
-    this.adapter = config.adapter ?? new MemoryStorageAdapter();
     this.prefix = config.prefix ?? "";
     this.serializer = config.serializer ?? JSON;
+    const adapter = config.adapter ?? new MemoryStorageAdapter();
+    this.adapter = config.migrate?.length
+      ? migrateLegacyKeys(adapter, resolveMigrations(config.migrate, this.prefix))
+      : adapter;
   }
 
   clear(): void {
@@ -232,9 +265,11 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
 
   constructor(config: AsyncStorageConfig) {
     super();
-    this.adapter = config.adapter;
     this.prefix = config.prefix ?? "";
     this.serializer = config.serializer ?? JSON;
+    this.adapter = config.migrate?.length
+      ? migrateLegacyKeysAsync(config.adapter, resolveMigrations(config.migrate, this.prefix))
+      : config.adapter;
   }
 
   async syncCache(): Promise<void> {
@@ -393,4 +428,81 @@ export class MemoryStorageAdapter implements Adapter {
   setItem(key: string, value: string): void {
     this.storage.set(key, value);
   }
+}
+
+/**
+ * Serializer that stores and returns values as plain strings, without JSON encoding.
+ * Use it for keys whose legacy values look like JSON primitives (`"true"`, `"12345"`) but must stay strings.
+ */
+export const RawStringSerializer: Serializer = {
+  parse: <T = unknown>(value: string): T => value as T,
+  stringify: <T = unknown>(value: T): string => String(value),
+};
+
+function resolveMigrations(migrate: MigrateConfig, prefix: string): LegacyKeyMigration[] {
+  return migrate.map((m) =>
+    typeof m === "string" ? { from: m, to: prefix + m } : { ...m, to: prefix + m.to }
+  );
+}
+
+/**
+ * Wraps an adapter so that reading a missing `to` key copies the value from its legacy `from` key.
+ * The copy happens once, on first read; keys that are never read are never touched.
+ * @param adapter - The underlying adapter.
+ * @param migrations - Legacy keys to migrate. `to` must be the fully-resolved key (prefix included).
+ */
+export function migrateLegacyKeys<SetConfig = unknown>(
+  adapter: Adapter<SetConfig>,
+  migrations: LegacyKeyMigration[],
+): Adapter<SetConfig> {
+  const byTo = new Map(migrations.map((m) => [m.to, m]));
+  return {
+    get length() {
+      return adapter.length;
+    },
+    key: adapter.key ? (index) => adapter.key!(index) : undefined,
+    clear: adapter.clear ? () => adapter.clear!() : undefined,
+    setItem: (key: string, value: string, config?: SetConfig) =>
+      adapter.setItem(key, value, config),
+    removeItem: (key) => adapter.removeItem(key),
+    getItem(key) {
+      const current = adapter.getItem(key);
+      if (current !== null) return current;
+      const m = byTo.get(key);
+      if (!m) return null;
+      const legacy = adapter.getItem(m.from);
+      if (legacy === null) return null;
+      adapter.setItem(key, legacy);
+      if (m.cleanup ?? true) adapter.removeItem(m.from);
+      return legacy;
+    },
+  };
+}
+
+/**
+ * Async twin of {@link migrateLegacyKeys} for {@link AsyncAdapter}.
+ */
+export function migrateLegacyKeysAsync<SetConfig = unknown>(
+  adapter: AsyncAdapter<SetConfig>,
+  migrations: LegacyKeyMigration[],
+): AsyncAdapter<SetConfig> {
+  const byTo = new Map(migrations.map((m) => [m.to, m]));
+  return {
+    keys: adapter.keys ? () => adapter.keys!() : undefined,
+    clear: adapter.clear ? () => adapter.clear!() : undefined,
+    setItem: (key: string, value: string, config?: SetConfig) =>
+      adapter.setItem(key, value, config),
+    removeItem: (key) => adapter.removeItem(key),
+    async getItem(key) {
+      const current = await adapter.getItem(key);
+      if (current !== null) return current;
+      const m = byTo.get(key);
+      if (!m) return null;
+      const legacy = await adapter.getItem(m.from);
+      if (legacy === null) return null;
+      await adapter.setItem(key, legacy);
+      if (m.cleanup ?? true) await adapter.removeItem(m.from);
+      return legacy;
+    },
+  };
 }

@@ -116,7 +116,7 @@ To support a prefix-scoped `clear()`, a custom adapter must expose key enumerati
 
 ## Configuration
 
-Optional settings: `prefix` (key prefix), `serializer` (defaults to `JSON`).
+Optional settings: `prefix` (key prefix), `serializer` (defaults to `JSON`), `migrate` (legacy keys to adopt, see below).
 
 ```ts
 import { LocalStorage } from "@jmondi/browser-storage";
@@ -151,6 +151,34 @@ export class SuperJsonSerializer implements Serializer {
 The `AsyncBrowserStorage` cache is a manual write buffer, not a read-through cache. `getCache()`, `setCache()`, and `removeCache()` operate on it directly, and `syncCache()` writes every buffered entry to the adapter.
 
 `get()` returns the raw stored string when the serializer cannot parse it, so values written by another library or an earlier version read back verbatim instead of throwing.
+
+## Migrating existing raw storage keys
+
+Adopting a `prefix` makes keys that already exist in `localStorage` invisible: `get("token")` reads `app__token`, not `token`. Pass `migrate` to adopt them. The first time a migrated key is read and the prefixed key is empty, the legacy value is copied over and the legacy key is removed. Keys that are never read are never touched, and a key that already has a prefixed value keeps it.
+
+```ts
+import { LocalStorage } from "@jmondi/browser-storage";
+
+const storage = new LocalStorage({
+  prefix: "app__",
+  migrate: [
+    "token", // copies `token` to `app__token`
+    { from: "orgId", to: "organizationId" }, // rename: `orgId` to `app__organizationId`
+    { from: "theme", to: "theme", cleanup: false }, // keep the legacy key after copying
+  ],
+});
+```
+
+The copied value is interpreted by the configured `serializer`. A raw value that is not valid JSON (a JWT, for example) reads back as-is. A raw value that *is* a JSON primitive, such as `"true"` or `"12345"`, parses as a boolean or number. If such keys must stay strings, put them on an instance that uses `RawStringSerializer`:
+
+```ts
+import { LocalStorage, RawStringSerializer } from "@jmondi/browser-storage";
+
+const ids = new LocalStorage({ prefix: "app__", serializer: RawStringSerializer, migrate: ["orgId"] });
+ids.get("orgId"); // "12345", not 12345
+```
+
+To wrap an adapter directly, use `migrateLegacyKeys(adapter, migrations)` or `migrateLegacyKeysAsync(adapter, migrations)`. With these, `to` is the fully-resolved key, prefix included.
 
 ## Migrating to v2
 

@@ -3,6 +3,9 @@ import {
   BrowserStorage,
   LocalStorage,
   MemoryStorageAdapter,
+  migrateLegacyKeys,
+  migrateLegacyKeysAsync,
+  RawStringSerializer,
   SessionStorage,
 } from "./index.ts";
 import type { Adapter, AsyncAdapter, Serializer } from "./index.ts";
@@ -505,5 +508,164 @@ Deno.test("coverage: prefix", async (t) => {
     await storage.set("empty", "");
 
     assertEquals(await storage.get("empty"), "");
+  });
+});
+
+Deno.test("legacy key migration", async (t) => {
+  class CountingAdapter extends MemoryStorageAdapter {
+    reads: string[] = [];
+    override getItem(key: string): string | null {
+      this.reads.push(key);
+      return super.getItem(key);
+    }
+  }
+
+  await t.step("migrates on first get() and returns the legacy value", () => {
+    const adapter = new CountingAdapter();
+    adapter.setItem("token", "eyJhbGciOi.abc.def");
+    const storage = new BrowserStorage({ adapter, prefix: "app__", migrate: ["token"] });
+    assertEquals(storage.get("token"), "eyJhbGciOi.abc.def");
+    assertEquals(adapter.getItem("app__token"), "eyJhbGciOi.abc.def");
+    assertEquals(adapter.getItem("token"), null);
+  });
+
+  await t.step("second read does not touch the legacy key", () => {
+    const adapter = new CountingAdapter();
+    adapter.setItem("token", "abc");
+    const storage = new BrowserStorage({ adapter, prefix: "app__", migrate: ["token"] });
+    storage.get("token");
+    adapter.reads = [];
+    assertEquals(storage.get("token"), "abc");
+    assertEquals(adapter.reads, ["app__token"]);
+  });
+
+  await t.step("cleanup: false leaves the legacy key intact", () => {
+    const adapter = new MemoryStorageAdapter();
+    adapter.setItem("token", "abc");
+    const storage = new BrowserStorage({
+      adapter,
+      prefix: "app__",
+      migrate: [{ from: "token", to: "token", cleanup: false }],
+    });
+    assertEquals(storage.get("token"), "abc");
+    assertEquals(adapter.getItem("token"), "abc");
+    assertEquals(adapter.getItem("app__token"), "abc");
+  });
+
+  await t.step("can rename a key during migration", () => {
+    const adapter = new MemoryStorageAdapter();
+    adapter.setItem("orgId", "42");
+    const storage = new BrowserStorage({
+      adapter,
+      prefix: "app__",
+      migrate: [{ from: "orgId", to: "organizationId" }],
+    });
+    assertEquals(storage.get("organizationId"), 42);
+    assertEquals(adapter.getItem("app__organizationId"), "42");
+    assertEquals(adapter.getItem("orgId"), null);
+  });
+
+  await t.step("a legacy key that is never read stays unmigrated", () => {
+    const adapter = new CountingAdapter();
+    adapter.setItem("token", "abc");
+    adapter.setItem("other", "xyz");
+    const storage = new BrowserStorage({ adapter, prefix: "app__", migrate: ["token", "other"] });
+    storage.get("other");
+    assertEquals(adapter.reads.includes("token"), false);
+    assertEquals(adapter.getItem("token"), "abc");
+    assertEquals(adapter.getItem("app__token"), null);
+  });
+
+  await t.step("an existing new value wins over the legacy value", () => {
+    const adapter = new MemoryStorageAdapter();
+    adapter.setItem("token", "old");
+    adapter.setItem("app__token", JSON.stringify("new"));
+    const storage = new BrowserStorage({ adapter, prefix: "app__", migrate: ["token"] });
+    assertEquals(storage.get("token"), "new");
+    assertEquals(adapter.getItem("token"), "old");
+  });
+
+  await t.step("prefix-scoped clear() still works through the decorator", () => {
+    const adapter = new MemoryStorageAdapter();
+    adapter.setItem("token", "abc");
+    adapter.setItem("keep", "me");
+    const storage = new BrowserStorage({ adapter, prefix: "app__", migrate: ["token"] });
+    storage.get("token");
+    storage.set("extra", 1);
+    storage.clear();
+    assertEquals(adapter.length, 1);
+    assertEquals(adapter.getItem("keep"), "me");
+  });
+
+  await t.step("migrateLegacyKeys works standalone with resolved keys", () => {
+    const adapter = new MemoryStorageAdapter();
+    adapter.setItem("token", "abc");
+    const wrapped = migrateLegacyKeys(adapter, [{ from: "token", to: "app__token" }]);
+    assertEquals(wrapped.getItem("app__token"), "abc");
+    assertEquals(wrapped.getItem("missing"), null);
+  });
+
+  await t.step("LocalStorage accepts migrate", () => {
+    const storage = new LocalStorage({ prefix: "app__", migrate: ["token"] });
+    storage.clear();
+    storage.adapter.setItem("token", "abc");
+    assertEquals(storage.get("token"), "abc");
+    assertEquals(storage.adapter.getItem("token"), null);
+    storage.clear();
+  });
+
+  await t.step("async: migrates on first get(), cleanup respected, idempotent", async () => {
+    const reads: string[] = [];
+    const map = new Map<string, string>([["token", "abc"], ["keep", "k"]]);
+    const adapter: AsyncAdapter = {
+      getItem: (key) => {
+        reads.push(key);
+        return Promise.resolve(map.get(key) ?? null);
+      },
+      setItem: (key, value) => {
+        map.set(key, value);
+        return Promise.resolve();
+      },
+      removeItem: (key) => {
+        map.delete(key);
+        return Promise.resolve();
+      },
+    };
+    const storage = new AsyncBrowserStorage({
+      adapter,
+      prefix: "app__",
+      migrate: ["token", { from: "keep", to: "keep", cleanup: false }],
+    });
+    assertEquals(await storage.get("token"), "abc");
+    assertEquals(map.get("app__token"), "abc");
+    assertEquals(map.has("token"), false);
+    reads.length = 0;
+    assertEquals(await storage.get("token"), "abc");
+    assertEquals(reads, ["app__token"]);
+    assertEquals(await storage.get("keep"), "k");
+    assertEquals(map.get("keep"), "k");
+    const wrapped = migrateLegacyKeysAsync(adapter, []);
+    assertEquals(await wrapped.getItem("nope"), null);
+  });
+});
+
+Deno.test("RawStringSerializer", async (t) => {
+  await t.step("keeps numeric-looking and boolean-looking strings as strings", () => {
+    const adapter = new MemoryStorageAdapter();
+    adapter.setItem("id", "12345");
+    adapter.setItem("flag", "true");
+    const raw = new BrowserStorage({ adapter, serializer: RawStringSerializer });
+    const json = new BrowserStorage({ adapter });
+    assertEquals(raw.get("id"), "12345");
+    assertEquals(raw.get("flag"), "true");
+    assertEquals(json.get("id"), 12345);
+    assertEquals(json.get("flag"), true);
+  });
+
+  await t.step("writes plain strings without quotes", () => {
+    const adapter = new MemoryStorageAdapter();
+    const raw = new BrowserStorage({ adapter, serializer: RawStringSerializer });
+    raw.set("id", "12345");
+    assertEquals(adapter.getItem("id"), "12345");
   });
 });
