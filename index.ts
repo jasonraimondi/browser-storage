@@ -45,6 +45,26 @@ export type AsyncAdapter<SetConfig = unknown> = {
 };
 
 /**
+ * Describes one legacy key to copy onto a new key the first time the new key is read.
+ */
+export type LegacyKeyMigration = {
+  /** Legacy key, exactly as it exists in storage today. */
+  from: string;
+  /** New key. In `StorageConfig.migrate` this is a bare key (the prefix is applied for you); in `migrateLegacyKeys()` it is the fully-resolved key. */
+  to: string;
+  /**
+   * Remove the legacy key once migrated.
+   * @default true
+   */
+  cleanup?: boolean;
+};
+
+/**
+ * Legacy keys to migrate lazily. A bare string `k` is shorthand for `{ from: k, to: k }`.
+ */
+export type MigrateConfig = (string | LegacyKeyMigration)[];
+
+/**
  * Configuration options for synchronous storage.
  */
 export type StorageConfig = {
@@ -53,6 +73,11 @@ export type StorageConfig = {
    * @default MemoryStorageAdapter
    */
   adapter?: Adapter;
+  /**
+   * (optional) Legacy keys to migrate onto the prefixed key on first read.
+   * @default []
+   */
+  migrate?: MigrateConfig;
   /**
    * (optional) Prefix for all storage keys.
    * @default ""
@@ -71,6 +96,11 @@ export type AsyncStorageConfig = {
    * @default MemoryStorageAdapter
    */
   adapter: AsyncAdapter;
+  /**
+   * (optional) Legacy keys to migrate onto the prefixed key on first read.
+   * @default []
+   */
+  migrate?: MigrateConfig;
   /**
    * (optional) Prefix for all storage keys.
    * @default ""
@@ -147,9 +177,12 @@ export class BrowserStorage<SetConfig = unknown> extends AbstractBrowserStorage<
 
   constructor(config: StorageConfig = {}) {
     super();
-    this.adapter = config.adapter ?? new MemoryStorageAdapter();
     this.prefix = config.prefix ?? "";
     this.serializer = config.serializer ?? JSON;
+    this.adapter = config.adapter ?? new MemoryStorageAdapter();
+    if (config.migrate?.length) {
+      migrateLegacyKeys(this.adapter, resolveMigrations(config.migrate, this.prefix));
+    }
   }
 
   clear(): void {
@@ -232,9 +265,19 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
 
   constructor(config: AsyncStorageConfig) {
     super();
-    this.adapter = config.adapter;
     this.prefix = config.prefix ?? "";
     this.serializer = config.serializer ?? JSON;
+    this.adapter = config.adapter;
+    this.migrations = config.migrate?.length ? resolveMigrations(config.migrate, this.prefix) : [];
+  }
+
+  private readonly migrations: LegacyKeyMigration[];
+  private migrated?: Promise<void>;
+
+  /** Resolves once legacy keys have been migrated. Runs the migration on first call. */
+  ready(): Promise<void> {
+    this.migrated ??= migrateLegacyKeysAsync(this.adapter, this.migrations);
+    return this.migrated;
   }
 
   async syncCache(): Promise<void> {
@@ -256,6 +299,7 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
   }
 
   async clear(): Promise<void> {
+    await this.ready();
     if (!this.prefix) {
       await this.adapter.clear?.();
       return;
@@ -273,6 +317,7 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
   }
 
   async get<T>(key: string): Promise<T | null> {
+    await this.ready();
     return this.fromStore<T>(await this.adapter.getItem(this.prefix + key));
   }
 
@@ -283,6 +328,7 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
   }
 
   async set(key: string, value?: unknown, config?: SetConfig): Promise<boolean> {
+    await this.ready();
     try {
       await this.adapter.setItem(this.prefix + key, this.toStore(value), config);
       return true;
@@ -293,6 +339,7 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
   }
 
   async remove(key: string): Promise<void> {
+    await this.ready();
     await this.adapter.removeItem(this.prefix + key);
   }
 
@@ -392,5 +439,67 @@ export class MemoryStorageAdapter implements Adapter {
 
   setItem(key: string, value: string): void {
     this.storage.set(key, value);
+  }
+}
+
+/**
+ * Serializer that stores and returns values as plain strings, without JSON encoding.
+ * Use it for keys whose legacy values look like JSON primitives (`"true"`, `"12345"`) but must stay strings.
+ * Non-string values are rejected, so `set()` returns `false` for them.
+ */
+export const RawStringSerializer: Serializer = {
+  parse: <T = unknown>(value: string): T => value as T,
+  stringify: <T = unknown>(value: T): string => {
+    if (typeof value !== "string") {
+      throw new TypeError("RawStringSerializer only accepts string values");
+    }
+    return value;
+  },
+};
+
+function resolveMigrations(migrate: MigrateConfig, prefix: string): LegacyKeyMigration[] {
+  return migrate.map((m) =>
+    typeof m === "string" ? { from: m, to: prefix + m } : { ...m, to: prefix + m.to }
+  );
+}
+
+/**
+ * Copies each legacy `from` key onto its `to` key when `to` is empty and `from` holds a value,
+ * then removes `from` unless `cleanup` is false. Runs once; safe to call again.
+ * A failed write leaves the legacy key in place.
+ * @param adapter - The adapter to migrate.
+ * @param migrations - Legacy keys to migrate. `to` must be the fully-resolved key (prefix included).
+ */
+export function migrateLegacyKeys(adapter: Adapter, migrations: LegacyKeyMigration[]): void {
+  for (const m of migrations) {
+    if (adapter.getItem(m.to) !== null) continue;
+    const legacy = adapter.getItem(m.from);
+    if (legacy === null) continue;
+    try {
+      adapter.setItem(m.to, legacy);
+    } catch {
+      continue;
+    }
+    if (m.cleanup ?? true) adapter.removeItem(m.from);
+  }
+}
+
+/**
+ * Async twin of {@link migrateLegacyKeys} for {@link AsyncAdapter}.
+ */
+export async function migrateLegacyKeysAsync(
+  adapter: AsyncAdapter,
+  migrations: LegacyKeyMigration[],
+): Promise<void> {
+  for (const m of migrations) {
+    if (await adapter.getItem(m.to) !== null) continue;
+    const legacy = await adapter.getItem(m.from);
+    if (legacy === null) continue;
+    try {
+      await adapter.setItem(m.to, legacy);
+    } catch {
+      continue;
+    }
+    if (m.cleanup ?? true) await adapter.removeItem(m.from);
   }
 }
