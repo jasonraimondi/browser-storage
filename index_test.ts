@@ -88,6 +88,22 @@ Deno.test("async browser storage", async (t) => {
     assertEquals(await storage.get("one"), "hello world");
   });
 
+  await t.step("cache respects prefix", async () => {
+    const adapter = new TestAsyncAdapter();
+    const storage = new AsyncBrowserStorage({ adapter, prefix: "p_" });
+    storage.setCache("one", "hello world");
+    assertEquals(storage.getCache("one"), "hello world");
+    await storage.syncCache();
+    assertEquals(await adapter.getItem("p_one"), "hello world");
+    assertEquals(await storage.get("one"), "hello world");
+  });
+
+  await t.step("setCache stores empty string", () => {
+    const storage = new AsyncBrowserStorage({ adapter: new TestAsyncAdapter() });
+    storage.setCache("one", "");
+    assertEquals(storage.getCache("one"), "");
+  });
+
   await t.step("clear removes all values", async () => {
     const storage = new AsyncBrowserStorage({ adapter: new TestAsyncAdapter() });
     await storage.set("one", "hello world");

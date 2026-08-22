@@ -246,15 +246,15 @@ export class AsyncBrowserStorage<SetConfig = unknown> extends AbstractBrowserSto
   }
 
   getCache(key: string): string | null {
-    return this.cachedAdapter.getItem(key);
+    return this.cachedAdapter.getItem(this.prefix + key);
   }
 
-  setCache(key: string, value?: string): void {
-    if (value) this.cachedAdapter.setItem(key, value);
+  setCache(key: string, value: string): void {
+    this.cachedAdapter.setItem(this.prefix + key, value);
   }
 
   removeCache(key: string): void {
-    this.cachedAdapter.removeItem(key);
+    this.cachedAdapter.removeItem(this.prefix + key);
   }
 
   async clear(): Promise<void> {
