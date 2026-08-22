@@ -5,3 +5,4 @@
 *npm/
 *coverage/
 *.pnpm-debug.log
+.claude/settings.local.json

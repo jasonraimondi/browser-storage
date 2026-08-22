@@ -12,7 +12,7 @@
     "ci": "deno fmt --check && deno lint && deno check mod.ts index_test.ts && deno test --allow-env"
   },
   "publish": {
-    "exclude": [".github", ".idea", ".serena", "deno.lock", "index_test.ts"]
+    "include": ["mod.ts", "index.ts", "README.md", "LICENSE", "deno.jsonc"]
   },
   "fmt": {
     "exclude": ["npm/", "README.md"],
