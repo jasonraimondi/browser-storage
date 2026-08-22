@@ -10,7 +10,7 @@ An abstracted storage library for **browser** applications that interfaces with 
 
 For Node.js:
 ```bash
-pnpx jsr add @jmondi/browser-storage
+npx jsr add @jmondi/browser-storage
 ```
 
 For Deno:
@@ -141,6 +141,16 @@ export class SuperJsonSerializer implements Serializer {
   }
 }
 ```
+
+## Notes
+
+`pop()` is a get followed by a remove, not an atomic operation. A concurrent write between the two steps is lost.
+
+`set()` returns `false` instead of throwing when the adapter rejects the write, for example on a quota error. `get()` and `remove()` do not catch adapter errors, so those propagate to the caller.
+
+The `AsyncBrowserStorage` cache is a manual write buffer, not a read-through cache. `getCache()`, `setCache()`, and `removeCache()` operate on it directly, and `syncCache()` writes every buffered entry to the adapter.
+
+`get()` returns the raw stored string when the serializer cannot parse it, so values written by another library or an earlier version read back verbatim instead of throwing.
 
 ## Migrating to v2
 
