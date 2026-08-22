@@ -154,7 +154,7 @@ The `AsyncBrowserStorage` cache is a manual write buffer, not a read-through cac
 
 ## Migrating existing raw storage keys
 
-Adopting a `prefix` makes keys that already exist in `localStorage` invisible: `get("token")` reads `app__token`, not `token`. Pass `migrate` to adopt them. The first time a migrated key is read and the prefixed key is empty, the legacy value is copied over and the legacy key is removed. Keys that are never read are never touched, and a key that already has a prefixed value keeps it.
+Adopting a `prefix` makes keys that already exist in `localStorage` invisible: `get("token")` reads `app__token`, not `token`. Pass `migrate` to adopt them. When the storage is constructed, each legacy key whose new key is empty is copied over and then removed. A new key that already has a value keeps it. If a write fails, the legacy key is left in place.
 
 ```ts
 import { LocalStorage } from "@jmondi/browser-storage";
@@ -169,7 +169,9 @@ const storage = new LocalStorage({
 });
 ```
 
-The copied value is interpreted by the configured `serializer`. A raw value that is not valid JSON (a JWT, for example) reads back as-is. A raw value that *is* a JSON primitive, such as `"true"` or `"12345"`, parses as a boolean or number. If such keys must stay strings, put them on an instance that uses `RawStringSerializer`:
+`AsyncBrowserStorage` runs the migration once before its first adapter call. Call `await storage.ready()` to run it up front.
+
+The copied value is interpreted by the configured `serializer`. A raw value that is not valid JSON (a JWT, for example) reads back as-is. A raw value that *is* a JSON primitive, such as `"true"` or `"12345"`, parses as a boolean or number. If such keys must stay strings, put them on an instance that uses `RawStringSerializer`. It accepts only strings; `set()` returns `false` for anything else.
 
 ```ts
 import { LocalStorage, RawStringSerializer } from "@jmondi/browser-storage";
@@ -178,7 +180,7 @@ const ids = new LocalStorage({ prefix: "app__", serializer: RawStringSerializer,
 ids.get("orgId"); // "12345", not 12345
 ```
 
-To wrap an adapter directly, use `migrateLegacyKeys(adapter, migrations)` or `migrateLegacyKeysAsync(adapter, migrations)`. With these, `to` is the fully-resolved key, prefix included.
+To migrate an adapter directly, call `migrateLegacyKeys(adapter, migrations)` or `await migrateLegacyKeysAsync(adapter, migrations)`. With these, `to` is the fully-resolved key, prefix included.
 
 ## Migrating to v2
 
