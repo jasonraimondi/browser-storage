@@ -24,7 +24,6 @@ export type Adapter<SetConfig = unknown> = {
   /** Removes an item from storage */
   removeItem(key: string): void;
   /** Sets an item in storage with optional config */
-  setItem(key: string, value: string): void;
   setItem(key: string, value: string, config?: SetConfig): void;
 };
 
@@ -42,7 +41,6 @@ export type AsyncAdapter<SetConfig = unknown> = {
   /** Removes an item from storage */
   removeItem(key: string): Promise<void>;
   /** Sets an item in storage with optional config */
-  setItem(key: string, value: string): Promise<void>;
   setItem(key: string, value: string, config?: SetConfig): Promise<void>;
 };
 

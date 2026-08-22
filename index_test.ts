@@ -302,17 +302,19 @@ Deno.test("browser storage spec", async (t) => {
 
   await t.step("catches error", () => {
     const stubStorage = new MemoryStorageAdapter();
-    const stubSerializer: Serializer = { ...JSON };
-    stubSerializer.parse = () => {
-      throw new Error();
-    };
+    const stubSerializer = {
+      stringify: JSON.stringify,
+      parse: () => {
+        throw new Error();
+      },
+    } as Serializer;
     const storage = new BrowserStorage({
       adapter: stubStorage,
       serializer: stubSerializer,
     });
 
-    storage.set("1", { message: "hello world" });
-    assertEquals(storage.get("1"), null);
+    assertEquals(storage.set("1", { message: "hello world" }), true);
+    assertEquals(storage.get("1"), '{"message":"hello world"}');
   });
 
   await t.step("clear removes all values", () => {
