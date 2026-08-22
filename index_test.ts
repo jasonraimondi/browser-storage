@@ -440,3 +440,70 @@ Deno.test("defining named groups", async (t) => {
     assertEquals(GROUP.user.get(), null);
   });
 });
+
+Deno.test("coverage: prefix", async (t) => {
+  await t.step("defineGroup with prefix produces prefixed keys and stores under them", () => {
+    const adapter = new MemoryStorageAdapter();
+    const storage = new BrowserStorage({ prefix: "app__", adapter });
+    const GROUP = storage.defineGroup({ token: "access_token", user: "user_info" });
+
+    GROUP.token.set("ABC123");
+
+    assertEquals(GROUP.token.key, "app__access_token");
+    assertEquals(GROUP.user.key, "app__user_info");
+    assertEquals(adapter.getItem("app__access_token"), '"ABC123"');
+    assertEquals(adapter.getItem("access_token"), null);
+    assertEquals(GROUP.token.get(), "ABC123");
+  });
+
+  await t.step("async set returns false when the adapter throws", async () => {
+    class ThrowingAsyncAdapter implements AsyncAdapter {
+      getItem(): Promise<string | null> {
+        return Promise.resolve(null);
+      }
+      setItem(): Promise<void> {
+        return Promise.reject(new Error("quota exceeded"));
+      }
+      removeItem(): Promise<void> {
+        return Promise.resolve();
+      }
+    }
+    const storage = new AsyncBrowserStorage({ adapter: new ThrowingAsyncAdapter() });
+
+    assertEquals(await storage.set("one", "hello world"), false);
+    assertEquals(await storage.get("one"), null);
+  });
+
+  await t.step("empty string value round-trips", () => {
+    const storage = new BrowserStorage({ prefix: "app__" });
+
+    storage.set("empty", "");
+
+    assertEquals(storage.get("empty"), "");
+  });
+
+  await t.step("async empty string value round-trips", async () => {
+    class TestAsyncAdapter implements AsyncAdapter {
+      private storage = new Map<string, string>();
+      getItem(key: string): Promise<string | null> {
+        return Promise.resolve(this.storage.get(key) ?? null);
+      }
+      setItem(key: string, value: string): Promise<void> {
+        this.storage.set(key, value);
+        return Promise.resolve();
+      }
+      removeItem(key: string): Promise<void> {
+        this.storage.delete(key);
+        return Promise.resolve();
+      }
+    }
+    const storage = new AsyncBrowserStorage({
+      adapter: new TestAsyncAdapter(),
+      prefix: "app__",
+    });
+
+    await storage.set("empty", "");
+
+    assertEquals(await storage.get("empty"), "");
+  });
+});
